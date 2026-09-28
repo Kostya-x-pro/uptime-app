@@ -1,6 +1,6 @@
 # Uptime App Backend
 
-Initial Go service scaffold. Application and domain code will be added later.
+Go service for uptime monitoring.
 
 ## Layout
 
@@ -12,8 +12,38 @@ Initial Go service scaffold. Application and domain code will be added later.
 
 ## Prerequisites
 
-Install Go 1.24 or newer, then run:
+Install Go 1.24 or newer. Configure the service with:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | PostgreSQL connection URL |
+| `JWT_SECRET` | yes | Random secret of at least 32 characters for HS256 access tokens |
+| `FRONTEND_ORIGIN` | no | Allowed browser origin, e.g. `http://localhost:3000` |
+| `COOKIE_SECURE` | no | `true` in HTTPS production environments; defaults to `false` |
+| `ACCESS_TOKEN_TTL` | no | Go duration; defaults to `24h` |
+| `REFRESH_TOKEN_TTL` | no | Go duration; defaults to `720h` (30 days) |
+| `HTTP_ADDR` | no | Listen address; defaults to `:8080` |
+| `MIGRATIONS_DIR` | no | SQL migration directory; defaults to `migrations` |
+
+Then run:
 
 ```bash
 go run ./cmd/server
 ```
+
+## Docker Compose
+
+Set a secure JWT secret and start PostgreSQL and the API:
+
+```bash
+JWT_SECRET="at-least-32-random-characters-long" docker compose up --build
+```
+
+In PowerShell:
+
+```powershell
+$env:JWT_SECRET = "at-least-32-random-characters-long"
+docker compose up --build
+```
+
+The API is available at `http://localhost:8080`; Compose applies migrations on API startup.
