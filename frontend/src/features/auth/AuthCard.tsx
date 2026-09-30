@@ -73,7 +73,7 @@ export function AuthCard() {
       } else {
         await login({ email, password });
       }
-      router.replace("/dashboard");
+      router.replace("/");
     } catch (reason) {
       if (reason instanceof AuthApiError) {
         if (reason.code === "email_already_registered") {
