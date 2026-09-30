@@ -10,14 +10,14 @@ import (
 )
 
 type Config struct {
-	DatabaseURL   string
-	JWTSecret     []byte
+	DatabaseURL    string
+	JWTSecret      []byte
 	FrontendOrigin string
-	CookieSecure  bool
-	HTTPAddr      string
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
-	MigrationsDir string
+	CookieSecure   bool
+	HTTPAddr       string
+	AccessTTL      time.Duration
+	RefreshTTL     time.Duration
+	MigrationsDir  string
 }
 
 func Load() (Config, error) {
