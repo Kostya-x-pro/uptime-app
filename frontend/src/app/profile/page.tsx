@@ -51,6 +51,18 @@ export default function ProfilePage() {
     };
   }, [accessToken, router, status]);
 
+  useEffect(() => {
+    if (!saved) {
+      return;
+    }
+
+    const redirectTimer = window.setTimeout(() => {
+      router.replace("/");
+    }, 4000);
+
+    return () => window.clearTimeout(redirectTimer);
+  }, [router, saved]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -126,7 +138,7 @@ export default function ProfilePage() {
                 {error && <span id="name-error" className="mt-1.5 block text-sm font-normal text-red-600">{error}</span>}
               </label>
 
-              {saved && <p className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700" role="status">Имя успешно обновлено.</p>}
+              {saved && <p className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700" role="status">Имя успешно обновлено. Вы будете перенаправлены на главную страницу.</p>}
 
               <button className="w-full cursor-pointer rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300" disabled={saving} type="submit">
                 {saving ? "Сохраняем…" : "Сохранить изменения"}
