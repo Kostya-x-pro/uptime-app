@@ -104,8 +104,8 @@ export function AuthCard() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Авторизация">
-        <button className={`rounded-md px-3 py-2 text-sm font-medium transition ${mode === "login" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`} type="button" role="tab" aria-selected={!isRegister} onClick={() => changeMode("login")}>Вход</button>
-        <button className={`rounded-md px-3 py-2 text-sm font-medium transition ${isRegister ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`} type="button" role="tab" aria-selected={isRegister} onClick={() => changeMode("register")}>Регистрация</button>
+        <button className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium transition ${mode === "login" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`} type="button" role="tab" aria-selected={!isRegister} onClick={() => changeMode("login")}>Вход</button>
+        <button className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium transition ${isRegister ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`} type="button" role="tab" aria-selected={isRegister} onClick={() => changeMode("register")}>Регистрация</button>
       </div>
 
       <form className="space-y-4" onSubmit={submit} noValidate>
@@ -129,7 +129,7 @@ export function AuthCard() {
 
         {requestError && <p className="text-sm text-red-600" role="alert">{requestError}</p>}
 
-        <button className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300" disabled={pending} type="submit">
+        <button className="w-full cursor-pointer rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300" disabled={pending} type="submit">
           {pending ? "Подождите…" : isRegister ? "Зарегистрироваться" : "Войти"}
         </button>
       </form>

@@ -61,7 +61,7 @@ export function Dashboard() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="text-lg font-semibold tracking-tight text-slate-950">Uptime</Link>
           <div className="relative" ref={menuRef}>
-            <button className="flex items-center gap-3 rounded-lg p-1 text-left outline-none transition hover:bg-slate-100 focus-visible:ring-4 focus-visible:ring-blue-100" type="button" aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Открыть меню профиля" onClick={() => setMenuOpen((open) => !open)}>
+            <button className="flex cursor-pointer items-center gap-3 rounded-lg p-1 text-left outline-none transition hover:bg-slate-100 focus-visible:ring-4 focus-visible:ring-blue-100" type="button" aria-expanded={menuOpen} aria-haspopup="menu" aria-label="Открыть меню профиля" onClick={() => setMenuOpen((open) => !open)}>
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-semibold text-slate-900">Вы в системе</p>
                 <p className="text-xs text-slate-500">Активная сессия</p>
@@ -78,7 +78,7 @@ export function Dashboard() {
                     <p className="mt-0.5 flex items-center gap-1.5 text-xs text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />В системе</p>
                   </div>
                 </div>
-                <button className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400" type="button" role="menuitem" onClick={handleLogout} disabled={pending}>
+                <button className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400" type="button" role="menuitem" onClick={handleLogout} disabled={pending}>
                   <LogoutIcon />
                   {pending ? "Выходим…" : "Выйти из аккаунта"}
                 </button>
@@ -99,13 +99,7 @@ export function Dashboard() {
         </aside>
 
         <section className="min-w-0">
-          <div className="border-b border-slate-200 pb-6">
-            <p className="text-sm font-medium text-blue-600">Панель управления</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">Добро пожаловать</h1>
-            <p className="mt-2 max-w-xl leading-6 text-slate-600">Вы успешно вошли в Uptime. Здесь будут собраны ваши мониторы и события.</p>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm text-slate-500">Статус аккаунта</p>
               <div className="mt-3 flex items-center gap-2 text-lg font-semibold text-slate-950"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Авторизован</div>
