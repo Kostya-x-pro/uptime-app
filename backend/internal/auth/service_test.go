@@ -45,6 +45,17 @@ func (r *memoryUsers) UpdateName(_ context.Context, userID, name string) error {
 	return ErrNotFound
 }
 
+func (r *memoryUsers) UpdateAvatarURL(_ context.Context, userID, avatarURL string) error {
+	for email, user := range r.users {
+		if user.ID == userID {
+			user.AvatarURL = avatarURL
+			r.users[email] = user
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
 type memorySessions struct{ sessions map[string]RefreshSession }
 
 func (r *memorySessions) Create(_ context.Context, session RefreshSession) error {
@@ -156,5 +167,25 @@ func TestUpdateProfileChangesName(t *testing.T) {
 	}
 	if profile.Name != "Updated Name" || profile.Email != "user@example.com" {
 		t.Fatalf("UpdateProfile() = %+v", profile)
+	}
+}
+
+func TestUpdateAvatarURLChangesProfile(t *testing.T) {
+	service, _ := newTestService()
+	_, err := service.Register(context.Background(), RegisterInput{Email: "user@example.com", Name: "User Name", Password: "password1"})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	user, err := service.users.FindByEmail(context.Background(), "user@example.com")
+	if err != nil {
+		t.Fatalf("FindByEmail() error = %v", err)
+	}
+
+	profile, err := service.UpdateAvatarURL(context.Background(), user.ID, "/uploads/avatars/avatar.png")
+	if err != nil {
+		t.Fatalf("UpdateAvatarURL() error = %v", err)
+	}
+	if profile.AvatarURL != "/uploads/avatars/avatar.png" {
+		t.Fatalf("AvatarURL = %q", profile.AvatarURL)
 	}
 }

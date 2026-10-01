@@ -44,9 +44,10 @@ type UpdateProfileInput struct {
 }
 
 type Profile struct {
-	ID    string `json:"id"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatarUrl"`
 }
 
 type TokenPair struct {
@@ -145,7 +146,17 @@ func (s *Service) Profile(ctx context.Context, userID string) (Profile, error) {
 	if err != nil {
 		return Profile{}, err
 	}
-	return Profile{ID: user.ID, Email: user.Email, Name: user.Name}, nil
+	return Profile{ID: user.ID, Email: user.Email, Name: user.Name, AvatarURL: user.AvatarURL}, nil
+}
+
+func (s *Service) UpdateAvatarURL(ctx context.Context, userID, avatarURL string) (Profile, error) {
+	if avatarURL == "" {
+		return Profile{}, ErrInvalidInput
+	}
+	if err := s.users.UpdateAvatarURL(ctx, userID, avatarURL); err != nil {
+		return Profile{}, err
+	}
+	return s.Profile(ctx, userID)
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, userID string, input UpdateProfileInput) (Profile, error) {

@@ -1,10 +1,11 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { AuthApiError, getProfile, type UserProfile, updateProfile } from "@/features/auth/api";
+import { AuthApiError, avatarSource, getProfile, type UserProfile, updateProfile, uploadAvatar } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { DashboardHeader } from "@/features/dashboard/DashboardHeader";
 
@@ -17,6 +18,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -63,6 +66,12 @@ export default function ProfilePage() {
     return () => window.clearTimeout(redirectTimer);
   }, [router, saved]);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    };
+  }, [avatarPreview]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedName = name.trim();
@@ -79,7 +88,11 @@ export default function ProfilePage() {
     setError(null);
     setSaving(true);
     try {
-      const updatedProfile = await updateProfile(accessToken, { name: trimmedName });
+      let updatedProfile = await updateProfile(accessToken, { name: trimmedName });
+      if (avatar) {
+        updatedProfile = await uploadAvatar(accessToken, avatar);
+        setAvatar(null);
+      }
       setProfile(updatedProfile);
       setAuthProfile(updatedProfile);
       setName(updatedProfile.name);
@@ -139,6 +152,32 @@ export default function ProfilePage() {
               </label>
 
               {saved && <p className="rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700" role="status">Имя успешно обновлено. Вы будете перенаправлены на главную страницу.</p>}
+
+              <div>
+                <p className="text-sm font-medium text-slate-800">Аватар</p>
+                <div className="mt-1.5 flex items-center gap-4">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-lg font-bold text-white">
+                    {(avatarPreview || profile?.avatarUrl) ? <img src={avatarPreview || avatarSource(profile?.avatarUrl ?? "")} alt="Предпросмотр аватара" className="h-full w-full object-cover" /> : "U"}
+                  </div>
+                  <label className="cursor-pointer rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-within:ring-4 focus-within:ring-blue-100">
+                    Загрузить аватар
+                    <input className="sr-only" type="file" accept="image/jpeg,image/png,image/gif" onChange={(event) => {
+                      const selected = event.target.files?.[0] ?? null;
+                      if (selected && selected.size > 15 * 1024 * 1024) {
+                        setError("Размер аватара не должен превышать 15 МБ.");
+                        event.target.value = "";
+                        return;
+                      }
+                      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+                      setAvatar(selected);
+                      setAvatarPreview(selected ? URL.createObjectURL(selected) : "");
+                      setError(null);
+                      setSaved(false);
+                    }} />
+                  </label>
+                </div>
+                <p className="mt-1.5 text-xs text-slate-500">JPEG, PNG или GIF, до 15 МБ.</p>
+              </div>
 
               <button className="w-full cursor-pointer rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300" disabled={saving} type="submit">
                 {saving ? "Сохраняем…" : "Сохранить изменения"}

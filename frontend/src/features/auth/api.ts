@@ -5,7 +5,8 @@ export type AuthResponse = {
 export type UserProfile = {
   id: string;
   email: string;
-  name: string;
+	name: string;
+	avatarUrl: string;
 };
 
 export class AuthApiError extends Error {
@@ -23,10 +24,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...init,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    headers: (() => {
+      const headers = new Headers(init.headers);
+      if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+      return headers;
+    })(),
   });
 
   if (!response.ok) {
@@ -75,4 +77,18 @@ export function updateProfile(accessToken: string, input: { name: string }) {
     headers: { Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify(input),
   });
+}
+
+export function uploadAvatar(accessToken: string, avatar: File) {
+  const body = new FormData();
+  body.append("avatar", avatar);
+  return request<UserProfile>("/api/v1/profile/avatar", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body,
+  });
+}
+
+export function avatarSource(avatarUrl: string) {
+  return avatarUrl ? `${apiBaseUrl}${avatarUrl}` : "";
 }

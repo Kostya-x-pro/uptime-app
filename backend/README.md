@@ -24,6 +24,7 @@ Install Go 1.24 or newer. Configure the service with:
 | `REFRESH_TOKEN_TTL` | no | Go duration; defaults to `720h` (30 days) |
 | `HTTP_ADDR` | no | Listen address; defaults to `:8080` |
 | `MIGRATIONS_DIR` | no | SQL migration directory; defaults to `migrations` |
+| `AVATARS_DIR` | no | Local directory for uploaded avatars; defaults to `uploads/avatars` |
 
 Then run:
 

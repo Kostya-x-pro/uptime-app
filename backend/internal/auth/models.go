@@ -6,6 +6,7 @@ type User struct {
 	ID           string    `gorm:"type:uuid;primaryKey"`
 	Email        string    `gorm:"size:320;not null;uniqueIndex"`
 	Name         string    `gorm:"size:100;not null"`
+	AvatarURL    string    `gorm:"size:255;not null;default:''"`
 	PasswordHash string    `gorm:"not null"`
 	CreatedAt    time.Time `gorm:"not null"`
 	UpdatedAt    time.Time `gorm:"not null"`

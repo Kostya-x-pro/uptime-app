@@ -23,11 +23,14 @@ func NewServer(cfg config.Config) (*http.Server, error) {
 	sessions := auth.NewGormSessionRepository(db)
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTTL)
 	service := auth.NewService(users, sessions, tokens, cfg.RefreshTTL)
-	handler := auth.NewHTTPHandler(service, tokens, cfg.FrontendOrigin, cfg.CookieSecure)
+	handler := auth.NewHTTPHandler(service, tokens, cfg.FrontendOrigin, cfg.CookieSecure, cfg.AvatarsDir)
+	mux := http.NewServeMux()
+	mux.Handle("/uploads/avatars/", http.StripPrefix("/uploads/avatars/", http.FileServer(http.Dir(cfg.AvatarsDir))))
+	mux.Handle("/", handler)
 
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           handler,
+		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
