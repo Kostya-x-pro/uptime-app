@@ -13,7 +13,7 @@ import (
 )
 
 const refreshCookieName = "refresh_token"
-const maxAvatarSize = 15 << 20
+const maxAvatarSize = 5 << 20
 
 type HTTPHandler struct {
 	service        *Service

@@ -163,8 +163,8 @@ export default function ProfilePage() {
                     Загрузить аватар
                     <input className="sr-only" type="file" accept="image/jpeg,image/png,image/gif" onChange={(event) => {
                       const selected = event.target.files?.[0] ?? null;
-                      if (selected && selected.size > 15 * 1024 * 1024) {
-                        setError("Размер аватара не должен превышать 15 МБ.");
+                      if (selected && selected.size > 5 * 1024 * 1024) {
+                        setError("Размер аватара не должен превышать 5 МБ.");
                         event.target.value = "";
                         return;
                       }
@@ -176,7 +176,7 @@ export default function ProfilePage() {
                     }} />
                   </label>
                 </div>
-                <p className="mt-1.5 text-xs text-slate-500">JPEG, PNG или GIF, до 15 МБ.</p>
+                <p className="mt-1.5 text-xs text-slate-500">JPEG, PNG или GIF, до 5 МБ.</p>
               </div>
 
               <button className="w-full cursor-pointer rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300" disabled={saving} type="submit">

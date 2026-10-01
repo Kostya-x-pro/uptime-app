@@ -13,7 +13,6 @@ function Avatar({ size = "default", avatarUrl = "", name = "" }: Readonly<{ size
   return (
     <div className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-sm font-bold text-white shadow-sm ${dimensions}`}>
       {avatarUrl ? <img src={avatarSource(avatarUrl)} alt={`Аватар ${name}`} className="h-full w-full object-cover" /> : "U"}
-      <span className="absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-hidden="true" />
     </div>
   );
 }
