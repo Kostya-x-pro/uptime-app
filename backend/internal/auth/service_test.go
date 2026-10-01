@@ -150,11 +150,11 @@ func TestUpdateProfileChangesName(t *testing.T) {
 		t.Fatalf("FindByEmail() error = %v", err)
 	}
 
-	profile, err := service.UpdateProfile(context.Background(), user.ID, UpdateProfileInput{Name: "Updated Name"})
+	profile, err := service.UpdateProfile(context.Background(), user.ID, UpdateProfileInput{Name: "UpdatedName"})
 	if err != nil {
 		t.Fatalf("UpdateProfile() error = %v", err)
 	}
-	if profile.Name != "Updated Name" || profile.Email != "user@example.com" {
+	if profile.Name != "UpdatedName" || profile.Email != "user@example.com" {
 		t.Fatalf("UpdateProfile() = %+v", profile)
 	}
 }
