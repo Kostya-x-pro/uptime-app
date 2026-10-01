@@ -153,9 +153,6 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, input Update
 	if err != nil {
 		return Profile{}, err
 	}
-	if strings.Contains(input.Name, " ") {
-		return s.Profile(ctx, userID)
-	}
 	if err := s.users.UpdateName(ctx, userID, name); err != nil {
 		return Profile{}, err
 	}
