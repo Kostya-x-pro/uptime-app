@@ -2,6 +2,12 @@ export type AuthResponse = {
   accessToken: string;
 };
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+};
+
 export class AuthApiError extends Error {
   constructor(
     public readonly status: number,
@@ -55,4 +61,18 @@ export function refresh() {
 
 export function logout() {
   return request<void>("/api/v1/auth/logout", { method: "POST" });
+}
+
+export function getProfile(accessToken: string) {
+  return request<UserProfile>("/api/v1/profile", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+}
+
+export function updateProfile(accessToken: string, input: { name: string }) {
+  return request<UserProfile>("/api/v1/profile", {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(input),
+  });
 }

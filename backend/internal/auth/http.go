@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -12,18 +13,51 @@ const refreshCookieName = "refresh_token"
 
 type HTTPHandler struct {
 	service        *Service
+	tokens         TokenManager
 	frontendOrigin string
 	cookieSecure   bool
 }
 
-func NewHTTPHandler(service *Service, frontendOrigin string, cookieSecure bool) http.Handler {
-	h := &HTTPHandler{service: service, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure}
+func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool) http.Handler {
+	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/register", h.register)
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
 	mux.HandleFunc("POST /api/v1/auth/refresh", h.refresh)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.logout)
+	mux.HandleFunc("GET /api/v1/profile", h.profile)
+	mux.HandleFunc("PATCH /api/v1/profile", h.updateProfile)
 	return h.cors(mux)
+}
+
+func (h *HTTPHandler) profile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	profile, err := h.service.Profile(r.Context(), userID)
+	if err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, profile)
+}
+
+func (h *HTTPHandler) updateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	var input UpdateProfileInput
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	profile, err := h.service.UpdateProfile(r.Context(), userID, input)
+	if err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, profile)
 }
 
 func (h *HTTPHandler) register(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +131,7 @@ func (h *HTTPHandler) cors(next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, PATCH, POST, OPTIONS")
 		}
 		if r.Method == http.MethodOptions {
 			if origin == "" || origin != h.frontendOrigin {
@@ -109,6 +143,21 @@ func (h *HTTPHandler) cors(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (h *HTTPHandler) accessUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	const prefix = "Bearer "
+	value := r.Header.Get("Authorization")
+	if !strings.HasPrefix(value, prefix) {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return "", false
+	}
+	userID, err := h.tokens.ParseAccessToken(strings.TrimPrefix(value, prefix))
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return "", false
+	}
+	return userID, true
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) bool {
@@ -131,6 +180,17 @@ func handleAuthError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusUnauthorized, "invalid_credentials")
 	case errors.Is(err, ErrInvalidSession):
 		writeError(w, http.StatusUnauthorized, "invalid_refresh_token")
+	default:
+		writeError(w, http.StatusInternalServerError, "internal_error")
+	}
+}
+
+func handleProfileError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrInvalidInput):
+		writeError(w, http.StatusBadRequest, "invalid_request")
+	case errors.Is(err, ErrNotFound):
+		writeError(w, http.StatusNotFound, "user_not_found")
 	default:
 		writeError(w, http.StatusInternalServerError, "internal_error")
 	}

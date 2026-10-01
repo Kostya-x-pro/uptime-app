@@ -25,6 +25,26 @@ func (r *memoryUsers) FindByEmail(_ context.Context, email string) (User, error)
 	return user, nil
 }
 
+func (r *memoryUsers) FindByID(_ context.Context, userID string) (User, error) {
+	for _, user := range r.users {
+		if user.ID == userID {
+			return user, nil
+		}
+	}
+	return User{}, ErrNotFound
+}
+
+func (r *memoryUsers) UpdateName(_ context.Context, userID, name string) error {
+	for email, user := range r.users {
+		if user.ID == userID {
+			user.Name = name
+			r.users[email] = user
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
 type memorySessions struct{ sessions map[string]RefreshSession }
 
 func (r *memorySessions) Create(_ context.Context, session RefreshSession) error {
@@ -116,5 +136,25 @@ func TestTokenManagerRejectsWrongTokenType(t *testing.T) {
 	userID, err := manager.ParseAccessToken(token)
 	if err != nil || userID != "user-id" {
 		t.Fatalf("ParseAccessToken() = %q, %v", userID, err)
+	}
+}
+
+func TestUpdateProfileChangesName(t *testing.T) {
+	service, _ := newTestService()
+	_, err := service.Register(context.Background(), RegisterInput{Email: "user@example.com", Name: "Initial Name", Password: "password1"})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	user, err := service.users.FindByEmail(context.Background(), "user@example.com")
+	if err != nil {
+		t.Fatalf("FindByEmail() error = %v", err)
+	}
+
+	profile, err := service.UpdateProfile(context.Background(), user.ID, UpdateProfileInput{Name: "Updated Name"})
+	if err != nil {
+		t.Fatalf("UpdateProfile() error = %v", err)
+	}
+	if profile.Name != "Updated Name" || profile.Email != "user@example.com" {
+		t.Fatalf("UpdateProfile() = %+v", profile)
 	}
 }

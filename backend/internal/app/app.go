@@ -23,7 +23,7 @@ func NewServer(cfg config.Config) (*http.Server, error) {
 	sessions := auth.NewGormSessionRepository(db)
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTTL)
 	service := auth.NewService(users, sessions, tokens, cfg.RefreshTTL)
-	handler := auth.NewHTTPHandler(service, cfg.FrontendOrigin, cfg.CookieSecure)
+	handler := auth.NewHTTPHandler(service, tokens, cfg.FrontendOrigin, cfg.CookieSecure)
 
 	return &http.Server{
 		Addr:              cfg.HTTPAddr,

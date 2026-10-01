@@ -39,6 +39,16 @@ type LoginInput struct {
 	Password string `json:"password"`
 }
 
+type UpdateProfileInput struct {
+	Name string `json:"name"`
+}
+
+type Profile struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
 type TokenPair struct {
 	AccessToken  string
 	RefreshToken string
@@ -130,6 +140,25 @@ func (s *Service) Logout(ctx context.Context, rawToken string) error {
 	return s.sessions.RevokeByHash(ctx, HashRefreshToken(rawToken), s.now().UTC())
 }
 
+func (s *Service) Profile(ctx context.Context, userID string) (Profile, error) {
+	user, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return Profile{}, err
+	}
+	return Profile{ID: user.ID, Email: user.Email, Name: user.Name}, nil
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, userID string, input UpdateProfileInput) (Profile, error) {
+	name, err := validateName(input.Name)
+	if err != nil {
+		return Profile{}, err
+	}
+	if err := s.users.UpdateName(ctx, userID, name); err != nil {
+		return Profile{}, err
+	}
+	return s.Profile(ctx, userID)
+}
+
 func (s *Service) createSession(ctx context.Context, userID string, now time.Time) (TokenPair, error) {
 	refreshToken, err := NewRefreshToken()
 	if err != nil {
@@ -158,14 +187,22 @@ func validateRegistration(input RegisterInput) (string, string, error) {
 	if err != nil || parsed.Address != email {
 		return "", "", ErrInvalidInput
 	}
-	name := strings.TrimSpace(input.Name)
-	if length := utf8.RuneCountInString(name); length < 2 || length > 100 {
-		return "", "", ErrInvalidInput
+	name, err := validateName(input.Name)
+	if err != nil {
+		return "", "", err
 	}
 	if utf8.RuneCountInString(input.Password) < 8 {
 		return "", "", ErrInvalidInput
 	}
 	return email, name, nil
+}
+
+func validateName(value string) (string, error) {
+	name := strings.TrimSpace(value)
+	if length := utf8.RuneCountInString(name); length < 2 || length > 100 {
+		return "", ErrInvalidInput
+	}
+	return name, nil
 }
 
 func normalizeEmail(email string) string {

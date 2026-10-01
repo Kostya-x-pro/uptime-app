@@ -3,12 +3,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import * as authApi from "@/features/auth/api";
+import type { UserProfile } from "@/features/auth/api";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";
 
 type AuthContextValue = {
   status: AuthStatus;
   accessToken: string | null;
+  profile: UserProfile | null;
+  setProfile: (profile: UserProfile | null) => void;
   login: (input: { email: string; password: string }) => Promise<void>;
   register: (input: { email: string; name: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -20,9 +23,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: Readonly<{ children: React.ReactNode }>) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   const setAuthenticated = useCallback((token: string) => {
     setAccessToken(token);
+    setProfile(null);
     setStatus("authenticated");
   }, []);
 
@@ -39,6 +44,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
       .catch(() => {
         if (active) {
           setAccessToken(null);
+          setProfile(null);
           setStatus("anonymous");
         }
       });
@@ -48,10 +54,35 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     };
   }, [setAuthenticated]);
 
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    let active = true;
+    void authApi.getProfile(accessToken)
+      .then((response) => {
+        if (active) {
+          setProfile(response);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setProfile(null);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [accessToken]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
       accessToken,
+      profile,
+      setProfile,
       login: async (input) => {
         const response = await authApi.login(input);
         setAuthenticated(response.accessToken);
@@ -65,6 +96,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
           await authApi.logout();
         } finally {
           setAccessToken(null);
+          setProfile(null);
           setStatus("anonymous");
         }
       },
@@ -77,7 +109,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
         return fetch(input, { ...init, headers, credentials: "include" });
       },
     }),
-    [accessToken, setAuthenticated, status],
+    [accessToken, profile, setAuthenticated, status],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

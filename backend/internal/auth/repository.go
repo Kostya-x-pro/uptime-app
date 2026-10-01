@@ -16,6 +16,8 @@ var ErrInvalidSession = errors.New("invalid refresh session")
 type UserRepository interface {
 	Create(context.Context, User) error
 	FindByEmail(context.Context, string) (User, error)
+	FindByID(context.Context, string) (User, error)
+	UpdateName(context.Context, string, string) error
 }
 
 type SessionRepository interface {
@@ -44,6 +46,26 @@ func (r *GormUserRepository) FindByEmail(ctx context.Context, email string) (Use
 		return User{}, ErrNotFound
 	}
 	return user, err
+}
+
+func (r *GormUserRepository) FindByID(ctx context.Context, userID string) (User, error) {
+	var user User
+	err := r.db.WithContext(ctx).First(&user, "id = ?", userID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return User{}, ErrNotFound
+	}
+	return user, err
+}
+
+func (r *GormUserRepository) UpdateName(ctx context.Context, userID, name string) error {
+	result := r.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("name", name)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 type GormSessionRepository struct{ db *gorm.DB }
