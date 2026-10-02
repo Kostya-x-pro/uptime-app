@@ -9,6 +9,13 @@ export type UserProfile = {
 	avatarUrl: string;
 };
 
+export type UploadedFile = {
+  name: string;
+  url: string;
+  contentType: string;
+  size: number;
+};
+
 export class AuthApiError extends Error {
   constructor(
     public readonly status: number,
@@ -83,6 +90,16 @@ export function uploadAvatar(accessToken: string, avatar: File) {
   const body = new FormData();
   body.append("avatar", avatar);
   return request<UserProfile>("/api/v1/profile/avatar", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body,
+  });
+}
+
+export function uploadFile(accessToken: string, file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return request<UploadedFile>("/api/v1/files", {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}` },
     body,

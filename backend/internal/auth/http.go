@@ -3,28 +3,29 @@ package auth
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/your-org/uptime-app-backend/internal/platform"
 )
 
 const refreshCookieName = "refresh_token"
 const maxAvatarSize = 5 << 20
+const maxFileSize = 20 << 20
 
 type HTTPHandler struct {
 	service        *Service
 	tokens         TokenManager
 	frontendOrigin string
 	cookieSecure   bool
-	avatarsDir     string
+	files          platform.FileStorage
+	avatars        platform.FileStorage
 }
 
-func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool, avatarsDir string) http.Handler {
-	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure, avatarsDir: avatarsDir}
+func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool, files, avatars platform.FileStorage) http.Handler {
+	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure, files: files, avatars: avatars}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/register", h.register)
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
@@ -33,6 +34,7 @@ func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string
 	mux.HandleFunc("GET /api/v1/profile", h.profile)
 	mux.HandleFunc("PATCH /api/v1/profile", h.updateProfile)
 	mux.HandleFunc("POST /api/v1/profile/avatar", h.uploadAvatar)
+	mux.HandleFunc("POST /api/v1/files", h.uploadFile)
 	return h.cors(mux)
 }
 
@@ -41,80 +43,71 @@ func (h *HTTPHandler) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarSize+1<<20)
-	if err := r.ParseMultipartForm(maxAvatarSize); err != nil {
-		var maxBytesError *http.MaxBytesError
-		if errors.As(err, &maxBytesError) {
-			writeError(w, http.StatusRequestEntityTooLarge, "avatar_too_large")
-			return
-		}
+	file, ok := h.receiveFile(w, r, "avatar", maxAvatarSize, "avatar", h.avatars)
+	if !ok {
+		return
+	}
+	if !isAvatarContentType(file.ContentType) {
+		_ = h.avatars.Delete(file)
 		writeError(w, http.StatusBadRequest, "invalid_avatar")
 		return
 	}
-	file, _, err := r.FormFile("avatar")
+	profile, err := h.service.UpdateAvatarURL(r.Context(), userID, file.URL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_avatar")
-		return
-	}
-	defer file.Close()
-
-	extension, err := avatarExtension(file)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_avatar")
-		return
-	}
-	fileName, err := NewID()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error")
-		return
-	}
-	if err := os.MkdirAll(h.avatarsDir, 0o750); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error")
-		return
-	}
-	temporary, err := os.CreateTemp(h.avatarsDir, ".avatar-*")
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error")
-		return
-	}
-	temporaryName := temporary.Name()
-	defer os.Remove(temporaryName)
-	if _, err := io.Copy(temporary, file); err != nil || temporary.Close() != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error")
-		return
-	}
-	storedName := fileName + extension
-	if err := os.Rename(temporaryName, filepath.Join(h.avatarsDir, storedName)); err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error")
-		return
-	}
-	profile, err := h.service.UpdateAvatarURL(r.Context(), userID, "/uploads/avatars/"+storedName)
-	if err != nil {
-		_ = os.Remove(filepath.Join(h.avatarsDir, storedName))
+		_ = h.avatars.Delete(file)
 		handleProfileError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, profile)
 }
 
-func avatarExtension(file io.ReadSeeker) (string, error) {
-	buffer := make([]byte, 512)
-	count, err := file.Read(buffer)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return "", err
+func (h *HTTPHandler) uploadFile(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.accessUserID(w, r); !ok {
+		return
 	}
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", err
+	file, ok := h.receiveFile(w, r, "file", maxFileSize, "file", h.files)
+	if !ok {
+		return
 	}
-	switch http.DetectContentType(buffer[:count]) {
+	writeJSON(w, http.StatusCreated, file)
+}
+
+func (h *HTTPHandler) receiveFile(w http.ResponseWriter, r *http.Request, field string, maxSize int64, kind string, storage platform.FileStorage) (platform.StoredFile, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxSize+1<<20)
+	if err := r.ParseMultipartForm(maxSize); err != nil {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			writeError(w, http.StatusRequestEntityTooLarge, kind+"_too_large")
+		} else {
+			writeError(w, http.StatusBadRequest, "invalid_"+kind)
+		}
+		return platform.StoredFile{}, false
+	}
+	file, header, err := r.FormFile(field)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_"+kind)
+		return platform.StoredFile{}, false
+	}
+	defer file.Close()
+
+	stored, err := storage.Save(file, header.Filename)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return platform.StoredFile{}, false
+	}
+	return stored, true
+}
+
+func isAvatarContentType(contentType string) bool {
+	switch contentType {
 	case "image/jpeg":
-		return ".jpg", nil
+		return true
 	case "image/png":
-		return ".png", nil
+		return true
 	case "image/gif":
-		return ".gif", nil
+		return true
 	default:
-		return "", fmt.Errorf("unsupported avatar type")
+		return false
 	}
 }
 

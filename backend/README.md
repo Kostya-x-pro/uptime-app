@@ -24,7 +24,7 @@ Install Go 1.24 or newer. Configure the service with:
 | `REFRESH_TOKEN_TTL` | no | Go duration; defaults to `720h` (30 days) |
 | `HTTP_ADDR` | no | Listen address; defaults to `:8080` |
 | `MIGRATIONS_DIR` | no | SQL migration directory; defaults to `migrations` |
-| `AVATARS_DIR` | no | Local directory for uploaded avatars; defaults to `uploads/avatars` |
+| `UPLOADS_DIR` | no | Local directory for uploaded files; defaults to `uploads` |
 
 Then run:
 
@@ -48,3 +48,7 @@ docker compose up --build
 ```
 
 The API is available at `http://localhost:8080`; Compose applies migrations on API startup.
+
+## File uploads
+
+Authenticated clients can upload a file with `POST /api/v1/files` as `multipart/form-data` using the `file` field. The response contains its generated name, public URL, detected content type, and size. Files are stored locally in `UPLOADS_DIR`; regular files are served as downloads. Profile avatars use the same storage through `POST /api/v1/profile/avatar`, but accept only JPEG, PNG, and GIF files up to 5 MB.

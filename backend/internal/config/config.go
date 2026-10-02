@@ -18,7 +18,7 @@ type Config struct {
 	AccessTTL      time.Duration
 	RefreshTTL     time.Duration
 	MigrationsDir  string
-	AvatarsDir     string
+	UploadsDir     string
 }
 
 func Load() (Config, error) {
@@ -58,7 +58,7 @@ func Load() (Config, error) {
 		AccessTTL:      accessTTL,
 		RefreshTTL:     refreshTTL,
 		MigrationsDir:  valueOr("MIGRATIONS_DIR", "migrations"),
-		AvatarsDir:     valueOr("AVATARS_DIR", "uploads/avatars"),
+		UploadsDir:     valueOr("UPLOADS_DIR", "uploads"),
 	}, nil
 }
 
