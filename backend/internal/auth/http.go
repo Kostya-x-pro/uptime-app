@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/your-org/uptime-app-backend/internal/monitor"
 	"github.com/your-org/uptime-app-backend/internal/platform"
 )
 
@@ -22,10 +23,11 @@ type HTTPHandler struct {
 	cookieSecure   bool
 	files          platform.FileStorage
 	avatars        platform.FileStorage
+	monitors       *monitor.Service
 }
 
-func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool, files, avatars platform.FileStorage) http.Handler {
-	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure, files: files, avatars: avatars}
+func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool, files, avatars platform.FileStorage, monitors *monitor.Service) http.Handler {
+	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure, files: files, avatars: avatars, monitors: monitors}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/register", h.register)
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
@@ -35,7 +37,75 @@ func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string
 	mux.HandleFunc("PATCH /api/v1/profile", h.updateProfile)
 	mux.HandleFunc("POST /api/v1/profile/avatar", h.uploadAvatar)
 	mux.HandleFunc("POST /api/v1/files", h.uploadFile)
+	mux.HandleFunc("GET /api/v1/monitors", h.listMonitors)
+	mux.HandleFunc("POST /api/v1/monitors", h.createMonitor)
+	mux.HandleFunc("PATCH /api/v1/monitors/{id}", h.updateMonitor)
 	return h.cors(mux)
+}
+
+func (h *HTTPHandler) listMonitors(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	monitors, err := h.monitors.List(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return
+	}
+	writeJSON(w, http.StatusOK, monitors)
+}
+
+func (h *HTTPHandler) createMonitor(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		URL             string `json:"url"`
+		IntervalSeconds int64  `json:"intervalSeconds"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	created, err := h.monitors.Create(r.Context(), userID, input.URL, input.IntervalSeconds)
+	if errors.Is(err, monitor.ErrInvalidInput) {
+		writeError(w, http.StatusBadRequest, "invalid_monitor")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return
+	}
+	writeJSON(w, http.StatusCreated, created)
+}
+
+func (h *HTTPHandler) updateMonitor(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		URL             string `json:"url"`
+		IntervalSeconds int64  `json:"intervalSeconds"`
+	}
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	updated, err := h.monitors.Update(r.Context(), userID, r.PathValue("id"), input.URL, input.IntervalSeconds)
+	if errors.Is(err, monitor.ErrInvalidInput) {
+		writeError(w, http.StatusBadRequest, "invalid_monitor")
+		return
+	}
+	if errors.Is(err, monitor.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "monitor_not_found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
 }
 
 func (h *HTTPHandler) uploadAvatar(w http.ResponseWriter, r *http.Request) {

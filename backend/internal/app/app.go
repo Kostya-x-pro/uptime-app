@@ -9,6 +9,7 @@ import (
 
 	"github.com/your-org/uptime-app-backend/internal/auth"
 	"github.com/your-org/uptime-app-backend/internal/config"
+	"github.com/your-org/uptime-app-backend/internal/monitor"
 	"github.com/your-org/uptime-app-backend/internal/platform"
 )
 
@@ -25,6 +26,7 @@ func NewServer(cfg config.Config) (*http.Server, error) {
 	sessions := auth.NewGormSessionRepository(db)
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTTL)
 	service := auth.NewService(users, sessions, tokens, cfg.RefreshTTL)
+	monitors := monitor.NewService(monitor.NewGormRepository(db), monitor.NewHTTPChecker())
 	handler := auth.NewHTTPHandler(
 		service,
 		tokens,
@@ -32,6 +34,7 @@ func NewServer(cfg config.Config) (*http.Server, error) {
 		cfg.CookieSecure,
 		platform.NewFileStorage(cfg.UploadsDir),
 		platform.NewFileStorageAt(filepath.Join(cfg.UploadsDir, "avatars"), "/uploads/avatars"),
+		monitors,
 	)
 	mux := http.NewServeMux()
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", uploadsHandler(cfg.UploadsDir)))
