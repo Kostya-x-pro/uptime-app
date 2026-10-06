@@ -22,3 +22,10 @@ Pull requests should describe the change, list the verification commands run, an
 ## Security & Configuration
 
 Do not commit `.env` files, credentials, `node_modules/`, or build output. Use local environment variables for secrets and document required variable names in the relevant application README.
+
+## Коммиты
+– Формат: Conventional Commits (feat, fix, refactor, test, docs, chore)
+– Заголовок до 72 символов, в повелительном наклонении
+– Без эмодзи, без «significantly improved» и прочей воды
+– Тело — только если нужно объяснить «почему», а не «что»
+– Один логический шаг — один коммит
