@@ -22,6 +22,8 @@ type Monitor struct {
 	Checks             []Check    `gorm:"-" json:"checks"`
 }
 
+const MaxMonitorsPerUser = 100
+
 func (Monitor) TableName() string { return "monitors" }
 
 type Check struct {

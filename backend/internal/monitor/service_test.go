@@ -36,6 +36,14 @@ func (r *memoryRepository) Update(_ context.Context, userID, monitorID, address 
 	return Monitor{}, ErrNotFound
 }
 
+func (r *memoryRepository) ListDue(_ context.Context, _ time.Time, _ int) ([]Monitor, error) {
+	return nil, nil
+}
+
+func (r *memoryRepository) RecordCheck(_ context.Context, _ Monitor, _ Check) error {
+	return nil
+}
+
 type fixedChecker struct{ status Status }
 
 func (checker fixedChecker) Check(context.Context, string) (Status, *int) {

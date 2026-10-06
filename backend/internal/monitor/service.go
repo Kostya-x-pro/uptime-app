@@ -11,12 +11,18 @@ import (
 
 var ErrInvalidInput = errors.New("invalid monitor input")
 var ErrNotFound = errors.New("monitor not found")
+var ErrMonitorLimitReached = errors.New("monitor limit reached")
 
 type Repository interface {
 	Create(context.Context, Monitor, Check) error
 	ListByUserID(context.Context, string) ([]Monitor, error)
 	Update(context.Context, string, string, string, int64) (Monitor, error)
+	ListDue(context.Context, time.Time, int) ([]Monitor, error)
+	RecordCheck(context.Context, Monitor, Check) error
 }
+
+const schedulerInterval = 10 * time.Second
+const schedulerBatchSize = 50
 
 type Checker interface {
 	Check(context.Context, string) (Status, *int)
@@ -61,6 +67,40 @@ func (s *Service) Create(ctx context.Context, userID, rawURL string, intervalSec
 
 func (s *Service) List(ctx context.Context, userID string) ([]Monitor, error) {
 	return s.repository.ListByUserID(ctx, userID)
+}
+
+func (s *Service) RunScheduler(ctx context.Context) {
+	s.checkDue(ctx)
+	ticker := time.NewTicker(schedulerInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.checkDue(ctx)
+		}
+	}
+}
+
+func (s *Service) checkDue(ctx context.Context) {
+	monitors, err := s.repository.ListDue(ctx, s.now().UTC(), schedulerBatchSize)
+	if err != nil {
+		return
+	}
+	for _, item := range monitors {
+		if ctx.Err() != nil {
+			return
+		}
+		checkedAt := s.now().UTC()
+		status, responseTimeMS := s.checker.Check(ctx, item.URL)
+		checkID, err := newID()
+		if err != nil {
+			continue
+		}
+		check := Check{ID: checkID, MonitorID: item.ID, Status: status, ResponseTimeMS: responseTimeMS, CheckedAt: checkedAt}
+		_ = s.repository.RecordCheck(ctx, item, check)
+	}
 }
 
 func (s *Service) Update(ctx context.Context, userID, monitorID, rawURL string, intervalSeconds int64) (Monitor, error) {

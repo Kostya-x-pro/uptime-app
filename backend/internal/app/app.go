@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -27,27 +28,32 @@ func NewServer(cfg config.Config) (*http.Server, error) {
 	tokens := auth.NewTokenManager(cfg.JWTSecret, cfg.AccessTTL)
 	service := auth.NewService(users, sessions, tokens, cfg.RefreshTTL)
 	monitors := monitor.NewService(monitor.NewGormRepository(db), monitor.NewHTTPChecker())
-	handler := auth.NewHTTPHandler(
+	authHandler := auth.NewHTTPHandler(
 		service,
 		tokens,
-		cfg.FrontendOrigin,
 		cfg.CookieSecure,
 		platform.NewFileStorage(cfg.UploadsDir),
 		platform.NewFileStorageAt(filepath.Join(cfg.UploadsDir, "avatars"), "/uploads/avatars"),
-		monitors,
 	)
 	mux := http.NewServeMux()
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", uploadsHandler(cfg.UploadsDir)))
-	mux.Handle("/", handler)
+	monitorHandler := auth.RequireAccessToken(tokens, monitor.NewHTTPHandler(monitors))
+	mux.Handle("/api/v1/monitors", monitorHandler)
+	mux.Handle("/api/v1/monitors/", monitorHandler)
+	mux.Handle("/", authHandler)
+	checkerContext, stopChecker := context.WithCancel(context.Background())
+	go monitors.RunScheduler(checkerContext)
 
-	return &http.Server{
+	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           mux,
+		Handler:           auth.CORS(cfg.FrontendOrigin, mux),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
-	}, nil
+	}
+	server.RegisterOnShutdown(stopChecker)
+	return server, nil
 }
 
 func uploadsHandler(directory string) http.Handler {
