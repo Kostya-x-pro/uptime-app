@@ -29,3 +29,10 @@ Do not commit `.env` files, credentials, `node_modules/`, or build output. Use l
 – Без эмодзи, без «significantly improved» и прочей воды
 – Тело — только если нужно объяснить «почему», а не «что»
 – Один логический шаг — один коммит
+
+## Ветки и Pull Request
+
+– Используй GitHub Flow: перед началом каждой задачи создай отдельную ветку от актуальной `main`.
+– Именуй ветку по типу и краткому названию задачи в kebab-case: `feat/<feature-name>`, `fix/<issue-name>`, `docs/<topic>`, `refactor/<scope>`.
+– Не вноси задачные изменения напрямую в `main`.
+– После завершения задачи создай Pull Request из рабочей ветки в `main`; вливай изменения только через PR после проверки.
