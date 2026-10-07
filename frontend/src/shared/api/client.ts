@@ -1,3 +1,5 @@
+import axios, { type AxiosRequestConfig } from "axios";
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -7,27 +9,29 @@ export class ApiError extends Error {
   }
 }
 
-type ApiRequestInit = RequestInit & { accessToken?: string };
-
 export const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
 
-export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
-  const { accessToken, headers: suppliedHeaders, ...requestInit } = init;
-  const headers = new Headers(suppliedHeaders);
-  if (requestInit.body && !(requestInit.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+export const apiClient = axios.create({
+  baseURL: apiBaseUrl,
+  withCredentials: true,
+});
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...requestInit,
-    credentials: "include",
-    headers,
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(response.status, body?.error ?? "request_failed");
+export function setApiAccessToken(accessToken: string | null) {
+  if (accessToken) {
+    apiClient.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+    return;
   }
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  delete apiClient.defaults.headers.common.Authorization;
+}
+
+export async function apiRequest<T>(path: string, config: AxiosRequestConfig = {}): Promise<T> {
+  try {
+    const response = await apiClient.request<T>({ ...config, url: path });
+    return response.data;
+  } catch (reason) {
+    if (axios.isAxiosError<{ error?: string }>(reason)) {
+      throw new ApiError(reason.response?.status ?? 0, reason.response?.data?.error ?? "request_failed");
+    }
+    throw reason;
+  }
 }

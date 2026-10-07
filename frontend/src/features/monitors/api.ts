@@ -17,22 +17,20 @@ export type Monitor = {
   checks: MonitorCheck[];
 };
 
-export function getMonitors(accessToken: string) {
-  return apiRequest<Monitor[]>("/api/v1/monitors", { accessToken });
+export function getMonitors() {
+  return apiRequest<Monitor[]>("/api/v1/monitors");
 }
 
-export function createMonitor(accessToken: string, input: { url: string; intervalSeconds: number }) {
+export function createMonitor(input: { url: string; intervalSeconds: number }) {
   return apiRequest<Monitor>("/api/v1/monitors", {
-    accessToken,
     method: "POST",
-    body: JSON.stringify(input),
+    data: input,
   });
 }
 
-export function updateMonitor(accessToken: string, monitorID: string, input: { url: string; intervalSeconds: number }) {
+export function updateMonitor(monitorID: string, input: { url: string; intervalSeconds: number }) {
   return apiRequest<Monitor>(`/api/v1/monitors/${monitorID}`, {
-    accessToken,
     method: "PATCH",
-    body: JSON.stringify(input),
+    data: input,
   });
 }

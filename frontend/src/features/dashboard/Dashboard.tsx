@@ -38,7 +38,7 @@ function MonitorCard({ monitor, onEdit }: Readonly<{ monitor: Monitor; onEdit: (
 }
 
 export function Dashboard() {
-  const { accessToken } = useAuth();
+  const { status } = useAuth();
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -50,11 +50,11 @@ export function Dashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (status !== "authenticated") return;
     let active = true;
-    void getMonitors(accessToken).then((items) => { if (active) setMonitors(items); }).catch(() => { if (active) setError("Не удалось загрузить точки мониторинга."); }).finally(() => { if (active) setLoading(false); });
+    void getMonitors().then((items) => { if (active) setMonitors(items); }).catch(() => { if (active) setError("Не удалось загрузить точки мониторинга."); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [accessToken]);
+  }, [status]);
 
   function openCreateForm() {
     setEditingMonitor(null);
@@ -78,7 +78,7 @@ export function Dashboard() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!accessToken) return;
+    if (status !== "authenticated") return;
     const amount = Number(intervalValue);
     const multiplier = intervalUnit === "hours" ? 3600 : intervalUnit === "minutes" ? 60 : 1;
     const interval = amount * multiplier;
@@ -89,7 +89,7 @@ export function Dashboard() {
     setSaving(true);
     setError(null);
     try {
-      const monitor = editingMonitor ? await updateMonitor(accessToken, editingMonitor.id, { url: url.trim(), intervalSeconds: interval }) : await createMonitor(accessToken, { url: url.trim(), intervalSeconds: interval });
+      const monitor = editingMonitor ? await updateMonitor(editingMonitor.id, { url: url.trim(), intervalSeconds: interval }) : await createMonitor({ url: url.trim(), intervalSeconds: interval });
       setMonitors((items) => editingMonitor ? items.map((item) => item.id === monitor.id ? monitor : item) : [monitor, ...items]);
       setEditingMonitor(null);
       setShowForm(false);

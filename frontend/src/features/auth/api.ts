@@ -23,14 +23,14 @@ export { ApiError as AuthApiError } from "@/shared/api/client";
 export function register(input: { email: string; name: string; password: string }) {
   return apiRequest<AuthResponse>("/api/v1/auth/register", {
     method: "POST",
-    body: JSON.stringify(input),
+    data: input,
   });
 }
 
 export function login(input: { email: string; password: string }) {
   return apiRequest<AuthResponse>("/api/v1/auth/login", {
     method: "POST",
-    body: JSON.stringify(input),
+    data: input,
   });
 }
 
@@ -42,37 +42,32 @@ export function logout() {
   return apiRequest<void>("/api/v1/auth/logout", { method: "POST" });
 }
 
-export function getProfile(accessToken: string) {
-  return apiRequest<UserProfile>("/api/v1/profile", {
-    accessToken,
-  });
+export function getProfile() {
+  return apiRequest<UserProfile>("/api/v1/profile");
 }
 
-export function updateProfile(accessToken: string, input: { name: string }) {
+export function updateProfile(input: { name: string }) {
   return apiRequest<UserProfile>("/api/v1/profile", {
     method: "PATCH",
-    accessToken,
-    body: JSON.stringify(input),
+    data: input,
   });
 }
 
-export function uploadAvatar(accessToken: string, avatar: File) {
+export function uploadAvatar(avatar: File) {
   const body = new FormData();
   body.append("avatar", avatar);
   return apiRequest<UserProfile>("/api/v1/profile/avatar", {
     method: "POST",
-    accessToken,
-    body,
+    data: body,
   });
 }
 
-export function uploadFile(accessToken: string, file: File) {
+export function uploadFile(file: File) {
   const body = new FormData();
   body.append("file", file);
   return apiRequest<UploadedFile>("/api/v1/files", {
     method: "POST",
-    accessToken,
-    body,
+    data: body,
   });
 }
 
