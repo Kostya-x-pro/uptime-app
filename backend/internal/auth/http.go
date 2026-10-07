@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -24,8 +25,8 @@ type HTTPHandler struct {
 	avatars        platform.FileStorage
 }
 
-func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string, cookieSecure bool, files, avatars platform.FileStorage) http.Handler {
-	h := &HTTPHandler{service: service, tokens: tokens, frontendOrigin: frontendOrigin, cookieSecure: cookieSecure, files: files, avatars: avatars}
+func NewHTTPHandler(service *Service, tokens TokenManager, cookieSecure bool, files, avatars platform.FileStorage) http.Handler {
+	h := &HTTPHandler{service: service, tokens: tokens, cookieSecure: cookieSecure, files: files, avatars: avatars}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/register", h.register)
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
@@ -35,7 +36,7 @@ func NewHTTPHandler(service *Service, tokens TokenManager, frontendOrigin string
 	mux.HandleFunc("PATCH /api/v1/profile", h.updateProfile)
 	mux.HandleFunc("POST /api/v1/profile/avatar", h.uploadAvatar)
 	mux.HandleFunc("POST /api/v1/files", h.uploadFile)
-	return h.cors(mux)
+	return mux
 }
 
 func (h *HTTPHandler) uploadAvatar(w http.ResponseWriter, r *http.Request) {
@@ -205,17 +206,17 @@ func (h *HTTPHandler) clearRefreshCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: refreshCookieName, Value: "", Path: "/api/v1/auth", MaxAge: -1, HttpOnly: true, Secure: h.cookieSecure, SameSite: http.SameSiteLaxMode})
 }
 
-func (h *HTTPHandler) cors(next http.Handler) http.Handler {
+func CORS(frontendOrigin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if origin != "" && origin == h.frontendOrigin {
+		if origin != "" && origin == frontendOrigin {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, PATCH, POST, OPTIONS")
 		}
 		if r.Method == http.MethodOptions {
-			if origin == "" || origin != h.frontendOrigin {
+			if origin == "" || origin != frontendOrigin {
 				writeError(w, http.StatusForbidden, "cors_origin_not_allowed")
 				return
 			}
@@ -224,6 +225,34 @@ func (h *HTTPHandler) cors(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+type accessUserIDContextKey struct{}
+
+type AccessTokenParser interface {
+	ParseAccessToken(string) (string, error)
+}
+
+func RequireAccessToken(tokens AccessTokenParser, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const prefix = "Bearer "
+		value := r.Header.Get("Authorization")
+		if !strings.HasPrefix(value, prefix) {
+			writeError(w, http.StatusUnauthorized, "invalid_access_token")
+			return
+		}
+		userID, err := tokens.ParseAccessToken(strings.TrimPrefix(value, prefix))
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "invalid_access_token")
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), accessUserIDContextKey{}, userID)))
+	})
+}
+
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	userID, ok := ctx.Value(accessUserIDContextKey{}).(string)
+	return userID, ok
 }
 
 func (h *HTTPHandler) accessUserID(w http.ResponseWriter, r *http.Request) (string, bool) {

@@ -11,7 +11,7 @@ import { DashboardHeader } from "@/features/dashboard/DashboardHeader";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { accessToken, setProfile: setAuthProfile, status } = useAuth();
+  const { setProfile: setAuthProfile, status } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +26,12 @@ export default function ProfilePage() {
       router.replace("/");
       return;
     }
-    if (status !== "authenticated" || !accessToken) {
+    if (status !== "authenticated") {
       return;
     }
 
     let active = true;
-    void getProfile(accessToken)
+    void getProfile()
       .then((response) => {
         if (active) {
           setProfile(response);
@@ -52,7 +52,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, [accessToken, router, status]);
+  }, [router, status]);
 
   useEffect(() => {
     if (!saved) {
@@ -81,16 +81,16 @@ export default function ProfilePage() {
       setError("Имя должно содержать от 2 до 100 символов.");
       return;
     }
-    if (!accessToken) {
+    if (status !== "authenticated") {
       return;
     }
 
     setError(null);
     setSaving(true);
     try {
-      let updatedProfile = await updateProfile(accessToken, { name: trimmedName });
+      let updatedProfile = await updateProfile({ name: trimmedName });
       if (avatar) {
-        updatedProfile = await uploadAvatar(accessToken, avatar);
+        updatedProfile = await uploadAvatar(avatar);
         setAvatar(null);
       }
       setProfile(updatedProfile);

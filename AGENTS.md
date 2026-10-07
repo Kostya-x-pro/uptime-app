@@ -19,6 +19,24 @@ This repository has no Git history yet, so no established commit convention exis
 
 Pull requests should describe the change, list the verification commands run, and link the relevant issue when available. Include screenshots for visible frontend changes and identify API-contract changes explicitly.
 
+## Pull Request Workflow
+
+Follow this workflow after completing a task:
+
+1. Confirm the working tree only contains the task changes, review the diff against `main`, and run the relevant validation commands for every changed module.
+2. Commit each remaining logical change with a Conventional Commit message. Keep the branch up to date with `main` without discarding task changes.
+3. Push the current branch to `origin` with upstream tracking.
+4. Create a pull request from the current branch into `main`. Its title must be a Conventional Commit subject, use the same type and concise imperative style as the implementation commit.
+5. Write the PR body in a temporary file and pass it to `gh pr create --body-file`. Include these sections when applicable:
+   - `## Summary` — the user-visible outcome and purpose.
+   - `## Changes` — concrete implementation details, grouped by module.
+   - `## API contract` — routes, request/response fields, status codes, or `None`.
+   - `## Security` — protections introduced or relevant security considerations.
+   - `## Verification` — exact commands run and their result.
+   - `## Screenshots` — links or `Not applicable`.
+   - `## Issue` — linked issue or `Not applicable`.
+6. Verify the PR URL, base branch, head branch, title, and checks after creation. Do not merge it unless the user explicitly asks.
+
 ## Security & Configuration
 
 Do not commit `.env` files, credentials, `node_modules/`, or build output. Use local environment variables for secrets and document required variable names in the relevant application README.

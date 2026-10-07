@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import * as authApi from "@/features/auth/api";
 import type { UserProfile } from "@/features/auth/api";
+import { setApiAccessToken } from "@/shared/api/client";
 
 type AuthStatus = "loading" | "authenticated" | "anonymous";
 
@@ -15,7 +16,6 @@ type AuthContextValue = {
   login: (input: { email: string; password: string }) => Promise<void>;
   register: (input: { email: string; name: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
-  authorizedFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -26,6 +26,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   const setAuthenticated = useCallback((token: string) => {
+    setApiAccessToken(token);
     setAccessToken(token);
     setProfile(null);
     setStatus("authenticated");
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
       .catch(() => {
         if (active) {
           setAccessToken(null);
+          setApiAccessToken(null);
           setProfile(null);
           setStatus("anonymous");
         }
@@ -60,7 +62,7 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     }
 
     let active = true;
-    void authApi.getProfile(accessToken)
+    void authApi.getProfile()
       .then((response) => {
         if (active) {
           setProfile(response);
@@ -95,18 +97,11 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
         try {
           await authApi.logout();
         } finally {
+          setApiAccessToken(null);
           setAccessToken(null);
           setProfile(null);
           setStatus("anonymous");
         }
-      },
-      authorizedFetch: (input, init = {}) => {
-        if (!accessToken) {
-          return Promise.reject(new Error("Authentication is required"));
-        }
-        const headers = new Headers(init.headers);
-        headers.set("Authorization", `Bearer ${accessToken}`);
-        return fetch(input, { ...init, headers, credentials: "include" });
       },
     }),
     [accessToken, profile, setAuthenticated, status],
