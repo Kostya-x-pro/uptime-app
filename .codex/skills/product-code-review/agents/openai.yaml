@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Code Review"
+  short_description: "Review mixed Go backend and Next.js frontend diffs"
+  default_prompt: "Review the current product diff, run applicable static checks, and report prioritized P0-P3 findings."
