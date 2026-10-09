@@ -27,6 +27,15 @@ type monitorInput struct {
 	IntervalSeconds int64  `json:"intervalSeconds"`
 }
 
+// list godoc
+// @Summary List monitors
+// @Tags monitors
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} Monitor
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/monitors [get]
 func (h *HTTPHandler) list(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
@@ -41,6 +50,19 @@ func (h *HTTPHandler) list(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, monitors)
 }
 
+// create godoc
+// @Summary Create a monitor
+// @Tags monitors
+// @Accept json
+// @Produce json
+// @Param input body monitorInput true "Monitor configuration"
+// @Security BearerAuth
+// @Success 201 {object} Monitor
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/monitors [post]
 func (h *HTTPHandler) create(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
@@ -64,6 +86,20 @@ func (h *HTTPHandler) create(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// update godoc
+// @Summary Update a monitor
+// @Tags monitors
+// @Accept json
+// @Produce json
+// @Param id path string true "Monitor ID"
+// @Param input body monitorInput true "Monitor configuration"
+// @Security BearerAuth
+// @Success 200 {object} Monitor
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/monitors/{id} [patch]
 func (h *HTTPHandler) update(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {

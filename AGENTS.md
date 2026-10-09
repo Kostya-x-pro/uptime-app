@@ -42,15 +42,13 @@ Follow this workflow after completing a task:
 Do not commit `.env` files, credentials, `node_modules/`, or build output. Use local environment variables for secrets and document required variable names in the relevant application README.
 
 ## Коммиты
+
 – Формат: Conventional Commits (feat, fix, refactor, test, docs, chore)
 – Заголовок до 72 символов, в повелительном наклонении
 – Без эмодзи, без «significantly improved» и прочей воды
 – Тело — только если нужно объяснить «почему», а не «что»
 – Один логический шаг — один коммит
 
-## Ветки и Pull Request
+## When startin a new task use secton with branchs and pr
 
-– Используй GitHub Flow: перед началом каждой задачи создай отдельную ветку от актуальной `main`.
-– Именуй ветку по типу и краткому названию задачи в kebab-case: `feat/<feature-name>`, `fix/<issue-name>`, `docs/<topic>`, `refactor/<scope>`.
-– Не вноси задачные изменения напрямую в `main`.
-– После завершения задачи создай Pull Request из рабочей ветки в `main`; вливай изменения только через PR после проверки.
+details in file: docs/rules/branches-and-pr.md

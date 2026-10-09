@@ -39,6 +39,20 @@ func NewHTTPHandler(service *Service, tokens TokenManager, cookieSecure bool, fi
 	return mux
 }
 
+// uploadAvatar godoc
+// @Summary Upload profile avatar
+// @Tags profile
+// @Accept multipart/form-data
+// @Produce json
+// @Param avatar formData file true "Avatar image (JPEG, PNG or GIF, up to 5 MB)"
+// @Security BearerAuth
+// @Success 200 {object} Profile
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 413 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/profile/avatar [post]
 func (h *HTTPHandler) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.accessUserID(w, r)
 	if !ok {
@@ -62,6 +76,19 @@ func (h *HTTPHandler) uploadAvatar(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
+// uploadFile godoc
+// @Summary Upload a file
+// @Tags files
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "File to upload (up to 20 MB)"
+// @Security BearerAuth
+// @Success 201 {object} platform.StoredFile
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 413 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/files [post]
 func (h *HTTPHandler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.accessUserID(w, r); !ok {
 		return
@@ -112,6 +139,16 @@ func isAvatarContentType(contentType string) bool {
 	}
 }
 
+// profile godoc
+// @Summary Get the current profile
+// @Tags profile
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} Profile
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/profile [get]
 func (h *HTTPHandler) profile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.accessUserID(w, r)
 	if !ok {
@@ -125,6 +162,19 @@ func (h *HTTPHandler) profile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
+// updateProfile godoc
+// @Summary Update the current profile
+// @Tags profile
+// @Accept json
+// @Produce json
+// @Param input body UpdateProfileInput true "Profile fields"
+// @Security BearerAuth
+// @Success 200 {object} Profile
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/profile [patch]
 func (h *HTTPHandler) updateProfile(w http.ResponseWriter, r *http.Request) {
 	userID, ok := h.accessUserID(w, r)
 	if !ok {
@@ -142,6 +192,17 @@ func (h *HTTPHandler) updateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, profile)
 }
 
+// register godoc
+// @Summary Register a user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body RegisterInput true "Registration credentials"
+// @Success 201 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 409 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/auth/register [post]
 func (h *HTTPHandler) register(w http.ResponseWriter, r *http.Request) {
 	var input RegisterInput
 	if !decodeJSON(w, r, &input) {
@@ -155,6 +216,17 @@ func (h *HTTPHandler) register(w http.ResponseWriter, r *http.Request) {
 	h.writeTokens(w, pair, http.StatusCreated)
 }
 
+// login godoc
+// @Summary Log in a user
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param input body LoginInput true "Login credentials"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/auth/login [post]
 func (h *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	var input LoginInput
 	if !decodeJSON(w, r, &input) {
@@ -168,6 +240,14 @@ func (h *HTTPHandler) login(w http.ResponseWriter, r *http.Request) {
 	h.writeTokens(w, pair, http.StatusOK)
 }
 
+// refresh godoc
+// @Summary Refresh access token
+// @Tags auth
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/auth/refresh [post]
 func (h *HTTPHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(refreshCookieName)
 	if err != nil {
@@ -182,6 +262,12 @@ func (h *HTTPHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	h.writeTokens(w, pair, http.StatusOK)
 }
 
+// logout godoc
+// @Summary Log out a user
+// @Tags auth
+// @Success 204
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/auth/logout [post]
 func (h *HTTPHandler) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(refreshCookieName); err == nil {
 		if err := h.service.Logout(r.Context(), cookie.Value); err != nil {

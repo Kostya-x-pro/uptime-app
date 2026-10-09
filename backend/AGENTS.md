@@ -18,6 +18,17 @@ go vet ./...         # run static analysis
 
 Format changed Go files with `gofmt` before committing. Run `go test ./...` and `go vet ./...` for every backend change.
 
+## API Documentation
+
+Add swaggo annotations to every new or changed HTTP route, including its parameters, request body, responses, and security requirements. After changing routes or annotations, regenerate the contract from `backend/`:
+
+```bash
+go run github.com/swaggo/swag/cmd/swag init -g cmd/server/main.go -o docs
+npx --yes @redocly/cli build-docs docs/swagger.yaml --output docs/swagger.html --disableGoogleFont
+```
+
+Commit the regenerated `docs/docs.go`, `docs/swagger.json`, `docs/swagger.yaml`, and `docs/swagger.html` files together with the API changes.
+
 ## Style and Testing
 
 Follow standard Go conventions. Use tabs as produced by `gofmt`; package names are short, lowercase, and contain no underscores. Exported identifiers use `PascalCase`; unexported identifiers use `camelCase`. Prefer explicit dependencies and small interfaces at the consumer boundary.
@@ -27,3 +38,11 @@ Write tests in `*_test.go` files next to the package they test. Name test functi
 ## Configuration and Security
 
 Read secrets and deployment-specific settings from environment variables; never commit `.env` files or credentials. Add a documented example variable name to the backend README when introducing new configuration.
+
+## Комментарии в коде
+- Комментарии пишем на русском языке
+- Комментируй ПОЧЕМУ, а не что, так как это видно из когда
+- Очевидное не комментируй, лучше используй правильные найменования функций
+- Публичные функции doc comment
+- Сложную арифметику, поясняй рядом
+- Меняешь код актуализируй комметнарий

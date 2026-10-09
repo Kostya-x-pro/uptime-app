@@ -49,6 +49,18 @@ docker compose up --build
 
 The API is available at `http://localhost:8080`; Compose applies migrations on API startup.
 
+## API contract
+
+The generated Swagger/OpenAPI 2.0 contract is available in [`docs/swagger.yaml`](docs/swagger.yaml) and [`docs/swagger.json`](docs/swagger.json).
+Regenerate it after changing API annotations with:
+
+```bash
+go run github.com/swaggo/swag/cmd/swag init -g cmd/server/main.go -o docs
+npx --yes @redocly/cli build-docs docs/swagger.yaml --output docs/swagger.html --disableGoogleFont
+```
+
+The generated ReDoc page is available at [`docs/swagger.html`](docs/swagger.html).
+
 ## File uploads
 
 Authenticated clients can upload a file with `POST /api/v1/files` as `multipart/form-data` using the `file` field. The response contains its generated name, public URL, detected content type, and size. Files are stored locally in `UPLOADS_DIR`; regular files are served as downloads. Profile avatars use the same storage through `POST /api/v1/profile/avatar`, but accept only JPEG, PNG, and GIF files up to 5 MB.
