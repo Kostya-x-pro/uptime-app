@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend API OpenAPI"
+  short_description: "Keep Go backend routes documented with swaggo and ReDoc"
+  default_prompt: "Update swaggo annotations and regenerate the backend OpenAPI and ReDoc documentation after API route changes."
