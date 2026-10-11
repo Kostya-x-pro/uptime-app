@@ -28,7 +28,7 @@ func (r *GormRepository) Create(ctx context.Context, monitor Monitor, check Chec
 	})
 }
 
-func (r *GormRepository) Update(ctx context.Context, userID, monitorID, address string, intervalSeconds int64) (Monitor, error) {
+func (r *GormRepository) Update(ctx context.Context, userID, monitorID, name, address string, intervalSeconds int64) (Monitor, error) {
 	var monitor Monitor
 	query := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", monitorID, userID).First(&monitor)
 	if errors.Is(query.Error, gorm.ErrRecordNotFound) {
@@ -37,6 +37,7 @@ func (r *GormRepository) Update(ctx context.Context, userID, monitorID, address 
 	if query.Error != nil {
 		return Monitor{}, query.Error
 	}
+	monitor.Name = name
 	monitor.URL = address
 	monitor.IntervalSeconds = intervalSeconds
 	if err := r.db.WithContext(ctx).Save(&monitor).Error; err != nil {
@@ -48,6 +49,17 @@ func (r *GormRepository) Update(ctx context.Context, userID, monitorID, address 
 	}
 	monitor.Checks = checks
 	return monitor, nil
+}
+
+func (r *GormRepository) Delete(ctx context.Context, userID, monitorID string) error {
+	result := r.db.WithContext(ctx).Where("id = ? AND user_id = ?", monitorID, userID).Delete(&Monitor{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *GormRepository) ListByUserID(ctx context.Context, userID string) ([]Monitor, error) {

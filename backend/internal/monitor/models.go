@@ -12,6 +12,7 @@ const (
 type Monitor struct {
 	ID                 string     `gorm:"type:uuid;primaryKey" json:"id"`
 	UserID             string     `gorm:"type:uuid;not null;index" json:"-"`
+	Name               string     `gorm:"size:100;not null;default:''" json:"name"`
 	URL                string     `gorm:"not null" json:"url"`
 	IntervalSeconds    int64      `gorm:"not null" json:"intervalSeconds"`
 	Status             Status     `gorm:"size:16;not null" json:"status"`

@@ -393,6 +393,49 @@ const docTemplate = `{
             }
         },
         "/api/v1/monitors/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "tags": [
+                    "monitors"
+                ],
+                "summary": "Delete a monitor",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "patch": {
                 "security": [
                     {
@@ -770,6 +813,9 @@ const docTemplate = `{
                 "lastResponseTimeMs": {
                     "type": "integer"
                 },
+                "name": {
+                    "type": "string"
+                },
                 "status": {
                     "$ref": "#/definitions/monitor.Status"
                 },
@@ -797,6 +843,9 @@ const docTemplate = `{
             "properties": {
                 "intervalSeconds": {
                     "type": "integer"
+                },
+                "name": {
+                    "type": "string"
                 },
                 "url": {
                     "type": "string"

@@ -19,10 +19,12 @@ func NewHTTPHandler(service *Service) http.Handler {
 	mux.HandleFunc("GET /api/v1/monitors", handler.list)
 	mux.HandleFunc("POST /api/v1/monitors", handler.create)
 	mux.HandleFunc("PATCH /api/v1/monitors/{id}", handler.update)
+	mux.HandleFunc("DELETE /api/v1/monitors/{id}", handler.delete)
 	return mux
 }
 
 type monitorInput struct {
+	Name            string `json:"name"`
 	URL             string `json:"url"`
 	IntervalSeconds int64  `json:"intervalSeconds"`
 }
@@ -73,7 +75,7 @@ func (h *HTTPHandler) create(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	created, err := h.service.Create(r.Context(), userID, input.URL, input.IntervalSeconds)
+	created, err := h.service.Create(r.Context(), userID, input.Name, input.URL, input.IntervalSeconds)
 	switch {
 	case errors.Is(err, ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, "invalid_monitor")
@@ -110,7 +112,7 @@ func (h *HTTPHandler) update(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &input) {
 		return
 	}
-	updated, err := h.service.Update(r.Context(), userID, r.PathValue("id"), input.URL, input.IntervalSeconds)
+	updated, err := h.service.Update(r.Context(), userID, r.PathValue("id"), input.Name, input.URL, input.IntervalSeconds)
 	switch {
 	case errors.Is(err, ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, "invalid_monitor")
@@ -121,6 +123,32 @@ func (h *HTTPHandler) update(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeJSON(w, http.StatusOK, updated)
 	}
+}
+
+// delete godoc
+// @Summary Delete a monitor
+// @Tags monitors
+// @Security BearerAuth
+// @Success 204
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/monitors/{id} [delete]
+func (h *HTTPHandler) delete(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid_access_token")
+		return
+	}
+	if err := h.service.Delete(r.Context(), userID, r.PathValue("id")); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			writeError(w, http.StatusNotFound, "monitor_not_found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, destination any) bool {

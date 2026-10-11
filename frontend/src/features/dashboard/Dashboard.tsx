@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AuthApiError } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { DashboardHeader } from "@/features/dashboard/DashboardHeader";
-import { createMonitor, getMonitors, type Monitor, updateMonitor } from "@/features/monitors/api";
+import { createMonitor, deleteMonitor, getMonitors, type Monitor, updateMonitor } from "@/features/monitors/api";
 
 function formatInterval(seconds: number) {
   if (seconds % 3600 === 0) return `Каждые ${seconds / 3600} ч`;
@@ -18,21 +18,25 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "medium" }).format(new Date(value));
 }
 
-function MonitorCard({ monitor, onEdit }: Readonly<{ monitor: Monitor; onEdit: (monitor: Monitor) => void }>) {
+function MonitorCard({ monitor, onEdit, onDelete, deleting }: Readonly<{ monitor: Monitor; onEdit: (monitor: Monitor) => void; onDelete: (monitor: Monitor) => void; deleting: boolean }>) {
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate font-semibold text-slate-950" title={monitor.url}>{monitor.url}</p>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-950" title={monitor.name || monitor.url}>{monitor.name || monitor.url}</p>
+          {monitor.name && <p className="mt-1 truncate text-xs text-slate-500" title={monitor.url}>{monitor.url}</p>}
+        </div>
         <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${monitor.status === "up" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>{monitor.status === "up" ? "Доступен" : "Недоступен"}</span>
       </div>
       <dl className="mt-5 grid grid-cols-2 gap-4 text-sm">
         <div><dt className="text-slate-500">Частота</dt><dd className="mt-1 font-medium">{formatInterval(monitor.intervalSeconds)}</dd></div>
         <div><dt className="text-slate-500">Отклик</dt><dd className="mt-1 font-medium">{monitor.lastResponseTimeMs === null ? "—" : `${monitor.lastResponseTimeMs} мс`}</dd></div>
       </dl>
-      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs text-slate-500">Последняя проверка: {formatDate(monitor.lastCheckedAt)}</p><button className="cursor-pointer text-xs font-semibold text-blue-700 hover:text-blue-800" type="button" onClick={() => onEdit(monitor)}>Редактировать</button></div>
+      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs text-slate-500">Последняя проверка: {formatDate(monitor.lastCheckedAt)}</p><button className="cursor-pointer text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:cursor-not-allowed disabled:text-slate-400" type="button" onClick={() => onEdit(monitor)} disabled={deleting}>Редактировать</button></div>
       <div className="mt-4 flex h-8 items-end gap-1" aria-label="История проверок">
         {monitor.checks.slice().reverse().map((check) => <span key={check.id} className={`min-w-1 flex-1 rounded-t ${check.status === "up" ? "bg-emerald-400" : "bg-red-400"}`} style={{ height: `${Math.max(20, Math.min(100, (check.responseTimeMs ?? 1000) / 10))}%` }} title={`${check.status === "up" ? "Доступен" : "Недоступен"}: ${check.responseTimeMs ?? "—"} мс`} />)}
       </div>
+      <button className="mt-3 cursor-pointer text-xs font-semibold text-red-700 hover:text-red-800 disabled:cursor-not-allowed disabled:text-slate-400" type="button" onClick={() => onDelete(monitor)} disabled={deleting}>{deleting ? "Удаляем…" : "Удалить сайт"}</button>
     </article>
   );
 }
@@ -43,10 +47,13 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingMonitor, setEditingMonitor] = useState<Monitor | null>(null);
+  const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [intervalValue, setIntervalValue] = useState("1");
   const [intervalUnit, setIntervalUnit] = useState<"seconds" | "minutes" | "hours">("minutes");
   const [saving, setSaving] = useState(false);
+  const [deletingMonitorId, setDeletingMonitorId] = useState<string | null>(null);
+  const [monitorPendingDeletion, setMonitorPendingDeletion] = useState<Monitor | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,8 +63,18 @@ export function Dashboard() {
     return () => { active = false; };
   }, [status]);
 
+  useEffect(() => {
+    if (!monitorPendingDeletion || deletingMonitorId) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMonitorPendingDeletion(null);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [monitorPendingDeletion, deletingMonitorId]);
+
   function openCreateForm() {
     setEditingMonitor(null);
+    setName("");
     setUrl("");
     setIntervalValue("1");
     setIntervalUnit("minutes");
@@ -69,6 +86,7 @@ export function Dashboard() {
     const unit = monitor.intervalSeconds % 3600 === 0 ? "hours" : monitor.intervalSeconds % 60 === 0 ? "minutes" : "seconds";
     const multiplier = unit === "hours" ? 3600 : unit === "minutes" ? 60 : 1;
     setEditingMonitor(monitor);
+    setName(monitor.name);
     setUrl(monitor.url);
     setIntervalValue(String(monitor.intervalSeconds / multiplier));
     setIntervalUnit(unit);
@@ -89,13 +107,35 @@ export function Dashboard() {
     setSaving(true);
     setError(null);
     try {
-      const monitor = editingMonitor ? await updateMonitor(editingMonitor.id, { url: url.trim(), intervalSeconds: interval }) : await createMonitor({ url: url.trim(), intervalSeconds: interval });
+      const input = { name: name.trim(), url: url.trim(), intervalSeconds: interval };
+      const monitor = editingMonitor ? await updateMonitor(editingMonitor.id, input) : await createMonitor(input);
       setMonitors((items) => editingMonitor ? items.map((item) => item.id === monitor.id ? monitor : item) : [monitor, ...items]);
       setEditingMonitor(null);
       setShowForm(false);
     } catch (reason) {
       setError(reason instanceof AuthApiError && reason.code === "invalid_monitor" ? "Введите корректный URL (http или https) и период." : "Не удалось создать точку мониторинга.");
     } finally { setSaving(false); }
+  }
+
+  function openDeleteConfirmation(monitor: Monitor) {
+    setError(null);
+    setMonitorPendingDeletion(monitor);
+  }
+
+  async function handleDelete() {
+    const monitor = monitorPendingDeletion;
+    if (status !== "authenticated" || !monitor) return;
+    setDeletingMonitorId(monitor.id);
+    setError(null);
+    try {
+      await deleteMonitor(monitor.id);
+      setMonitors((items) => items.filter((item) => item.id !== monitor.id));
+      setMonitorPendingDeletion(null);
+    } catch {
+      setError("Не удалось удалить сайт из мониторинга.");
+    } finally {
+      setDeletingMonitorId(null);
+    }
   }
 
   return (
@@ -105,11 +145,12 @@ export function Dashboard() {
         <aside className="hidden lg:block"><nav aria-label="Основная навигация" className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm"><span className="flex items-center gap-3 rounded-lg bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700"><span className="h-2 w-2 rounded-full bg-blue-600" />Обзор</span></nav></aside>
         <section className="min-w-0">
           <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium text-blue-600">Мониторинг</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Ваши сайты</h1></div><button className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700" type="button" onClick={openCreateForm}>Добавить сайт</button></div>
-          {showForm && <form onSubmit={handleSubmit} className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_120px_160px_auto] sm:items-end"><label className="block text-sm font-medium text-slate-800">URL сайта<input className="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="url" placeholder="https://example.com" value={url} onChange={(event) => setUrl(event.target.value)} required /></label><label className="block text-sm font-medium text-slate-800">Период<input className="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="number" min="1" step="1" value={intervalValue} onChange={(event) => setIntervalValue(event.target.value)} required /></label><label className="block text-sm font-medium text-slate-800">Единица<select className="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" value={intervalUnit} onChange={(event) => setIntervalUnit(event.target.value as "seconds" | "minutes" | "hours")}><option value="seconds">Секунды</option><option value="minutes">Минуты</option><option value="hours">Часы</option></select></label><button className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400" type="submit" disabled={saving}>{saving ? "Сохраняем…" : editingMonitor ? "Сохранить" : "Создать"}</button></div><p className="mt-3 text-xs text-slate-500">Введите любое положительное целое число и выберите секунды, минуты или часы. При создании сайт проверяется сразу.</p></form>}
+          {showForm && <form onSubmit={handleSubmit} className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px_160px_auto] lg:items-end"><label className="block text-sm font-medium text-slate-800">Название (необязательно)<input className="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="text" maxLength={100} placeholder="Основной сайт" value={name} onChange={(event) => setName(event.target.value)} /></label><label className="block text-sm font-medium text-slate-800">URL сайта<input className="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="url" placeholder="https://example.com" value={url} onChange={(event) => setUrl(event.target.value)} required /></label><label className="block text-sm font-medium text-slate-800">Период<input className="mt-1.5 block w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="number" min="1" step="1" value={intervalValue} onChange={(event) => setIntervalValue(event.target.value)} required /></label><label className="block text-sm font-medium text-slate-800">Единица<select className="mt-1.5 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" value={intervalUnit} onChange={(event) => setIntervalUnit(event.target.value as "seconds" | "minutes" | "hours")}><option value="seconds">Секунды</option><option value="minutes">Минуты</option><option value="hours">Часы</option></select></label><button className="cursor-pointer rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400" type="submit" disabled={saving}>{saving ? "Сохраняем…" : editingMonitor ? "Сохранить" : "Создать"}</button></div><p className="mt-3 text-xs text-slate-500">Название помогает отличать сайты в карточках. Введите положительное целое число для периода и выберите секунды, минуты или часы.</p></form>}
           {error && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-700" role="alert">{error}</p>}
-          {loading ? <p className="mt-8 text-sm text-slate-600">Загружаем точки мониторинга…</p> : monitors.length > 0 && <div className="mt-6 grid gap-4 lg:grid-cols-2">{monitors.map((monitor) => <MonitorCard key={monitor.id} monitor={monitor} onEdit={openEditForm} />)}</div>}
+          {loading ? <p className="mt-8 text-sm text-slate-600">Загружаем точки мониторинга…</p> : monitors.length > 0 && <div className="mt-6 grid gap-4 lg:grid-cols-2">{monitors.map((monitor) => <MonitorCard key={monitor.id} monitor={monitor} onEdit={openEditForm} onDelete={openDeleteConfirmation} deleting={deletingMonitorId === monitor.id} />)}</div>}
         </section>
       </div>
+      {monitorPendingDeletion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4" role="presentation"><div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="delete-monitor-title"><h2 id="delete-monitor-title" className="text-lg font-semibold">Удалить сайт?</h2><p className="mt-3 text-sm leading-6 text-slate-600">Мониторинг «{monitorPendingDeletion.name || monitorPendingDeletion.url}» будет удалён вместе с историей проверок.</p><div className="mt-6 flex justify-end gap-3"><button className="cursor-pointer rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:text-slate-400" type="button" onClick={() => setMonitorPendingDeletion(null)} disabled={deletingMonitorId !== null}>Отмена</button><button className="cursor-pointer rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-red-300" type="button" onClick={handleDelete} disabled={deletingMonitorId !== null}>{deletingMonitorId ? "Удаляем…" : "Удалить"}</button></div></div></div>}
     </main>
   );
 }

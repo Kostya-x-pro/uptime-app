@@ -24,9 +24,10 @@ func (r *memoryRepository) ListByUserID(_ context.Context, userID string) ([]Mon
 	return result, nil
 }
 
-func (r *memoryRepository) Update(_ context.Context, userID, monitorID, address string, intervalSeconds int64) (Monitor, error) {
+func (r *memoryRepository) Update(_ context.Context, userID, monitorID, name, address string, intervalSeconds int64) (Monitor, error) {
 	for index, monitor := range r.monitors {
 		if monitor.ID == monitorID && monitor.UserID == userID {
+			monitor.Name = name
 			monitor.URL = address
 			monitor.IntervalSeconds = intervalSeconds
 			r.monitors[index] = monitor
@@ -34,6 +35,17 @@ func (r *memoryRepository) Update(_ context.Context, userID, monitorID, address 
 		}
 	}
 	return Monitor{}, ErrNotFound
+}
+
+func (r *memoryRepository) Delete(_ context.Context, userID, monitorID string) error {
+	for index, monitor := range r.monitors {
+		if monitor.ID != monitorID || monitor.UserID != userID {
+			continue
+		}
+		r.monitors = append(r.monitors[:index], r.monitors[index+1:]...)
+		return nil
+	}
+	return ErrNotFound
 }
 
 func (r *memoryRepository) ListDue(_ context.Context, _ time.Time, _ int) ([]Monitor, error) {
@@ -56,11 +68,11 @@ func TestCreateStoresInitialCheck(t *testing.T) {
 	service := NewService(repository, fixedChecker{status: StatusUp})
 	service.now = func() time.Time { return time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC) }
 
-	monitor, err := service.Create(context.Background(), "user-id", " https://example.com/status ", 300)
+	monitor, err := service.Create(context.Background(), "user-id", " Основной сайт ", " https://example.com/status ", 300)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-	if monitor.URL != "https://example.com/status" || monitor.Status != StatusUp || len(monitor.Checks) != 1 {
+	if monitor.Name != "Основной сайт" || monitor.URL != "https://example.com/status" || monitor.Status != StatusUp || len(monitor.Checks) != 1 {
 		t.Fatalf("Create() = %+v", monitor)
 	}
 	if len(repository.monitors) != 1 || repository.monitors[0].Checks[0].ResponseTimeMS == nil {
@@ -78,24 +90,68 @@ func TestCreateRejectsInvalidInput(t *testing.T) {
 		{url: "ftp://example.com", interval: 60},
 		{url: "https://example.com", interval: 0},
 	} {
-		if _, err := service.Create(context.Background(), "user-id", input.url, input.interval); err != ErrInvalidInput {
+		if _, err := service.Create(context.Background(), "user-id", "", input.url, input.interval); err != ErrInvalidInput {
 			t.Errorf("Create(%q, %d) error = %v, want ErrInvalidInput", input.url, input.interval, err)
 		}
+	}
+}
+
+func TestCreateRejectsNameLongerThan100Characters(t *testing.T) {
+	service := NewService(&memoryRepository{}, fixedChecker{status: StatusUp})
+	name := "а"
+	for range 100 {
+		name += "а"
+	}
+
+	if _, err := service.Create(context.Background(), "user-id", name, "https://example.com", 60); err != ErrInvalidInput {
+		t.Fatalf("Create() error = %v, want ErrInvalidInput", err)
 	}
 }
 
 func TestUpdateChangesMonitorSettings(t *testing.T) {
 	repository := &memoryRepository{}
 	service := NewService(repository, fixedChecker{status: StatusUp})
-	created, err := service.Create(context.Background(), "user-id", "https://example.com", 60)
+	created, err := service.Create(context.Background(), "user-id", "Старое название", "https://example.com", 60)
 	if err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}
-	updated, err := service.Update(context.Background(), "user-id", created.ID, "https://example.org", 3600)
+	updated, err := service.Update(context.Background(), "user-id", created.ID, "Новое название", "https://example.org", 3600)
 	if err != nil {
 		t.Fatalf("Update() error = %v", err)
 	}
-	if updated.URL != "https://example.org" || updated.IntervalSeconds != 3600 {
+	if updated.Name != "Новое название" || updated.URL != "https://example.org" || updated.IntervalSeconds != 3600 {
 		t.Fatalf("Update() = %+v", updated)
+	}
+}
+
+func TestDeleteRemovesMonitorForOwner(t *testing.T) {
+	repository := &memoryRepository{}
+	service := NewService(repository, fixedChecker{status: StatusUp})
+	created, err := service.Create(context.Background(), "user-id", "", "https://example.com", 60)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := service.Delete(context.Background(), "user-id", created.ID); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if len(repository.monitors) != 0 {
+		t.Fatalf("stored monitors after Delete() = %+v", repository.monitors)
+	}
+}
+
+func TestDeleteDoesNotRemoveAnotherUsersMonitor(t *testing.T) {
+	repository := &memoryRepository{}
+	service := NewService(repository, fixedChecker{status: StatusUp})
+	created, err := service.Create(context.Background(), "owner-id", "", "https://example.com", 60)
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+
+	if err := service.Delete(context.Background(), "other-user-id", created.ID); err != ErrNotFound {
+		t.Fatalf("Delete() error = %v, want ErrNotFound", err)
+	}
+	if len(repository.monitors) != 1 {
+		t.Fatalf("stored monitors after unauthorized Delete() = %+v", repository.monitors)
 	}
 }

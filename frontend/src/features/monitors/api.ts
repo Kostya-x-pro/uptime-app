@@ -9,6 +9,7 @@ export type MonitorCheck = {
 
 export type Monitor = {
   id: string;
+  name: string;
   url: string;
   intervalSeconds: number;
   status: "up" | "down";
@@ -17,20 +18,32 @@ export type Monitor = {
   checks: MonitorCheck[];
 };
 
+export type MonitorInput = {
+  name: string;
+  url: string;
+  intervalSeconds: number;
+};
+
 export function getMonitors() {
   return apiRequest<Monitor[]>("/api/v1/monitors");
 }
 
-export function createMonitor(input: { url: string; intervalSeconds: number }) {
+export function createMonitor(input: MonitorInput) {
   return apiRequest<Monitor>("/api/v1/monitors", {
     method: "POST",
     data: input,
   });
 }
 
-export function updateMonitor(monitorID: string, input: { url: string; intervalSeconds: number }) {
+export function updateMonitor(monitorID: string, input: MonitorInput) {
   return apiRequest<Monitor>(`/api/v1/monitors/${monitorID}`, {
     method: "PATCH",
     data: input,
+  });
+}
+
+export function deleteMonitor(monitorID: string) {
+  return apiRequest<void>(`/api/v1/monitors/${monitorID}`, {
+    method: "DELETE",
   });
 }

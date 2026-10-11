@@ -59,6 +59,8 @@ definitions:
         type: string
       lastResponseTimeMs:
         type: integer
+      name:
+        type: string
       status:
         $ref: '#/definitions/monitor.Status'
       updatedAt:
@@ -78,6 +80,8 @@ definitions:
     properties:
       intervalSeconds:
         type: integer
+      name:
+        type: string
       url:
         type: string
     type: object
@@ -342,6 +346,33 @@ paths:
       tags:
       - monitors
   /api/v1/monitors/{id}:
+    delete:
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a monitor
+      tags:
+      - monitors
     patch:
       consumes:
       - application/json

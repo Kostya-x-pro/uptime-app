@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var ErrInvalidInput = errors.New("invalid monitor input")
@@ -16,7 +17,8 @@ var ErrMonitorLimitReached = errors.New("monitor limit reached")
 type Repository interface {
 	Create(context.Context, Monitor, Check) error
 	ListByUserID(context.Context, string) ([]Monitor, error)
-	Update(context.Context, string, string, string, int64) (Monitor, error)
+	Update(context.Context, string, string, string, string, int64) (Monitor, error)
+	Delete(context.Context, string, string) error
 	ListDue(context.Context, time.Time, int) ([]Monitor, error)
 	RecordCheck(context.Context, Monitor, Check) error
 }
@@ -38,8 +40,8 @@ func NewService(repository Repository, checker Checker) *Service {
 	return &Service{repository: repository, checker: checker, now: time.Now}
 }
 
-func (s *Service) Create(ctx context.Context, userID, rawURL string, intervalSeconds int64) (Monitor, error) {
-	address, err := validateInput(rawURL, intervalSeconds)
+func (s *Service) Create(ctx context.Context, userID, rawName, rawURL string, intervalSeconds int64) (Monitor, error) {
+	name, address, err := validateInput(rawName, rawURL, intervalSeconds)
 	if err != nil {
 		return Monitor{}, err
 	}
@@ -50,7 +52,7 @@ func (s *Service) Create(ctx context.Context, userID, rawURL string, intervalSec
 	now := s.now().UTC()
 	status, responseTimeMS := s.checker.Check(ctx, address)
 	monitor := Monitor{
-		ID: id, UserID: userID, URL: address, IntervalSeconds: intervalSeconds, Status: status,
+		ID: id, UserID: userID, Name: name, URL: address, IntervalSeconds: intervalSeconds, Status: status,
 		LastCheckedAt: &now, LastResponseTimeMS: responseTimeMS, CreatedAt: now, UpdatedAt: now,
 	}
 	checkID, err := newID()
@@ -103,26 +105,34 @@ func (s *Service) checkDue(ctx context.Context) {
 	}
 }
 
-func (s *Service) Update(ctx context.Context, userID, monitorID, rawURL string, intervalSeconds int64) (Monitor, error) {
-	address, err := validateInput(rawURL, intervalSeconds)
+func (s *Service) Update(ctx context.Context, userID, monitorID, rawName, rawURL string, intervalSeconds int64) (Monitor, error) {
+	name, address, err := validateInput(rawName, rawURL, intervalSeconds)
 	if err != nil {
 		return Monitor{}, err
 	}
-	updated, err := s.repository.Update(ctx, userID, monitorID, address, intervalSeconds)
+	updated, err := s.repository.Update(ctx, userID, monitorID, name, address, intervalSeconds)
 	if err != nil {
 		return Monitor{}, err
 	}
 	return updated, nil
 }
 
-func validateInput(rawURL string, intervalSeconds int64) (string, error) {
+func (s *Service) Delete(ctx context.Context, userID, monitorID string) error {
+	return s.repository.Delete(ctx, userID, monitorID)
+}
+
+func validateInput(rawName, rawURL string, intervalSeconds int64) (string, string, error) {
+	name := strings.TrimSpace(rawName)
+	if utf8.RuneCountInString(name) > 100 {
+		return "", "", ErrInvalidInput
+	}
 	address := strings.TrimSpace(rawURL)
 	parsed, err := url.ParseRequestURI(address)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil {
-		return "", ErrInvalidInput
+		return "", "", ErrInvalidInput
 	}
 	if intervalSeconds < 1 {
-		return "", ErrInvalidInput
+		return "", "", ErrInvalidInput
 	}
-	return address, nil
+	return name, address, nil
 }
