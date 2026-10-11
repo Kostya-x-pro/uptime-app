@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  auth.ChangePasswordInput:
+    properties:
+      currentPassword:
+        type: string
+      newPassword:
+        type: string
+    type: object
   auth.LoginInput:
     properties:
       email:
@@ -552,6 +559,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload profile avatar
+      tags:
+      - profile
+  /api/v1/profile/password:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Current and new password
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.ChangePasswordInput'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change the current user's password
       tags:
       - profile
 schemes:

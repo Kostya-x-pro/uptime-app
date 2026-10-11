@@ -53,6 +53,13 @@ export function updateProfile(input: { name: string }) {
   });
 }
 
+export function changePassword(input: { currentPassword: string; newPassword: string }) {
+  return apiRequest<void>("/api/v1/profile/password", {
+    method: "PATCH",
+    data: input,
+  });
+}
+
 export function uploadAvatar(avatar: File) {
   const body = new FormData();
   body.append("avatar", avatar);

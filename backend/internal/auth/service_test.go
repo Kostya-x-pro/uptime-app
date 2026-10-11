@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type memoryUsers struct{ users map[string]User }
@@ -49,6 +51,17 @@ func (r *memoryUsers) UpdateAvatarURL(_ context.Context, userID, avatarURL strin
 	for email, user := range r.users {
 		if user.ID == userID {
 			user.AvatarURL = avatarURL
+			r.users[email] = user
+			return nil
+		}
+	}
+	return ErrNotFound
+}
+
+func (r *memoryUsers) UpdatePasswordHash(_ context.Context, userID, passwordHash string) error {
+	for email, user := range r.users {
+		if user.ID == userID {
+			user.PasswordHash = passwordHash
 			r.users[email] = user
 			return nil
 		}
@@ -187,5 +200,44 @@ func TestUpdateAvatarURLChangesProfile(t *testing.T) {
 	}
 	if profile.AvatarURL != "/uploads/avatars/avatar.png" {
 		t.Fatalf("AvatarURL = %q", profile.AvatarURL)
+	}
+}
+
+func TestChangePasswordUpdatesPassword(t *testing.T) {
+	service, _ := newTestService()
+	_, err := service.Register(context.Background(), RegisterInput{Email: "user@example.com", Name: "User Name", Password: "password1"})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	user, err := service.users.FindByEmail(context.Background(), "user@example.com")
+	if err != nil {
+		t.Fatalf("FindByEmail() error = %v", err)
+	}
+
+	if err := service.ChangePassword(context.Background(), user.ID, ChangePasswordInput{CurrentPassword: "password1", NewPassword: "password2"}); err != nil {
+		t.Fatalf("ChangePassword() error = %v", err)
+	}
+	updated, err := service.users.FindByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("FindByID() error = %v", err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(updated.PasswordHash), []byte("password2")) != nil {
+		t.Fatal("ChangePassword() did not store the new password")
+	}
+}
+
+func TestChangePasswordRejectsWrongCurrentPassword(t *testing.T) {
+	service, _ := newTestService()
+	_, err := service.Register(context.Background(), RegisterInput{Email: "user@example.com", Name: "User Name", Password: "password1"})
+	if err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	user, err := service.users.FindByEmail(context.Background(), "user@example.com")
+	if err != nil {
+		t.Fatalf("FindByEmail() error = %v", err)
+	}
+
+	if err := service.ChangePassword(context.Background(), user.ID, ChangePasswordInput{CurrentPassword: "wrongpass", NewPassword: "password2"}); !errors.Is(err, ErrInvalidCurrentPassword) {
+		t.Fatalf("ChangePassword() error = %v, want ErrInvalidCurrentPassword", err)
 	}
 }

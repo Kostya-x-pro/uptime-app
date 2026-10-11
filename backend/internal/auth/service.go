@@ -15,6 +15,7 @@ import (
 var ErrInvalidInput = errors.New("invalid input")
 var ErrEmailAlreadyRegistered = errors.New("email already registered")
 var ErrInvalidCredentials = errors.New("invalid credentials")
+var ErrInvalidCurrentPassword = errors.New("invalid current password")
 
 type Service struct {
 	users      UserRepository
@@ -41,6 +42,11 @@ type LoginInput struct {
 
 type UpdateProfileInput struct {
 	Name string `json:"name"`
+}
+
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
 }
 
 type Profile struct {
@@ -168,6 +174,30 @@ func (s *Service) UpdateProfile(ctx context.Context, userID string, input Update
 		return Profile{}, err
 	}
 	return s.Profile(ctx, userID)
+}
+
+func (s *Service) ChangePassword(ctx context.Context, userID string, input ChangePasswordInput) error {
+	if utf8.RuneCountInString(input.NewPassword) < 8 || input.CurrentPassword == "" {
+		return ErrInvalidInput
+	}
+	user, err := s.users.FindByID(ctx, userID)
+	if errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if err != nil {
+		return fmt.Errorf("find user: %w", err)
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.CurrentPassword)) != nil {
+		return ErrInvalidCurrentPassword
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash password: %w", err)
+	}
+	if err := s.users.UpdatePasswordHash(ctx, userID, string(hash)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) createSession(ctx context.Context, userID string, now time.Time) (TokenPair, error) {

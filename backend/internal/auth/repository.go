@@ -19,6 +19,7 @@ type UserRepository interface {
 	FindByID(context.Context, string) (User, error)
 	UpdateName(context.Context, string, string) error
 	UpdateAvatarURL(context.Context, string, string) error
+	UpdatePasswordHash(context.Context, string, string) error
 }
 
 type SessionRepository interface {
@@ -71,6 +72,17 @@ func (r *GormUserRepository) UpdateName(ctx context.Context, userID, name string
 
 func (r *GormUserRepository) UpdateAvatarURL(ctx context.Context, userID, avatarURL string) error {
 	result := r.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("avatar_url", avatarURL)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *GormUserRepository) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
+	result := r.db.WithContext(ctx).Model(&User{}).Where("id = ?", userID).Update("password_hash", passwordHash)
 	if result.Error != nil {
 		return result.Error
 	}

@@ -34,6 +34,7 @@ func NewHTTPHandler(service *Service, tokens TokenManager, cookieSecure bool, fi
 	mux.HandleFunc("POST /api/v1/auth/logout", h.logout)
 	mux.HandleFunc("GET /api/v1/profile", h.profile)
 	mux.HandleFunc("PATCH /api/v1/profile", h.updateProfile)
+	mux.HandleFunc("PATCH /api/v1/profile/password", h.changePassword)
 	mux.HandleFunc("POST /api/v1/profile/avatar", h.uploadAvatar)
 	mux.HandleFunc("POST /api/v1/files", h.uploadFile)
 	return mux
@@ -190,6 +191,34 @@ func (h *HTTPHandler) updateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, profile)
+}
+
+// changePassword godoc
+// @Summary Change the current user's password
+// @Tags profile
+// @Accept json
+// @Security BearerAuth
+// @Param input body ChangePasswordInput true "Current and new password"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/profile/password [patch]
+func (h *HTTPHandler) changePassword(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.accessUserID(w, r)
+	if !ok {
+		return
+	}
+	var input ChangePasswordInput
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	if err := h.service.ChangePassword(r.Context(), userID, input); err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // register godoc
@@ -385,6 +414,8 @@ func handleProfileError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, "invalid_request")
+	case errors.Is(err, ErrInvalidCurrentPassword):
+		writeError(w, http.StatusUnauthorized, "invalid_current_password")
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, "user_not_found")
 	default:
