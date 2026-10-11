@@ -7,6 +7,10 @@
                     {
                         "type": "command",
                         "command": ".codex/hooks/gofmt.sh"
+                    },
+                    {
+                        "type": "command",
+                        "command": ".codex/hooks/eslint.sh"
                     }
                 ]
             }
